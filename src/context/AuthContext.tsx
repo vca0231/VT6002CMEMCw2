@@ -24,7 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('onAuthStateChanged triggered. User:', user ? user.uid : 'null');
       setCurrentUser(user);
       setLoadingAuth(false);
-      if (user) {
+      if (user) {   
         // Optionally store user token/uid in AsyncStorage for quick access if needed elsewhere
         await AsyncStorage.setItem('userToken', await user.getIdToken());
         await AsyncStorage.setItem('userUid', user.uid);
@@ -60,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithIdToken = async (idToken: string) => {
     try {
-      // 直接使用 Firebase 自定义令牌登录
+
       const userCredential = await signInWithCustomToken(auth, idToken);
       return { success: true, user: userCredential.user };
     } catch (error: any) {

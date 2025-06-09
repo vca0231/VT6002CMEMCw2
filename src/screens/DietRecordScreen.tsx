@@ -1,12 +1,41 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { View, Text, StyleSheet, TextInput, Button, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '@env';
+import { api } from '../services/api';
+
 
 const DietRecordScreen = () => {
   const [foodName, setFoodName] = useState('');
   const [calories, setCalories] = useState('');
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [mealType, setMealType] = useState('breakfast');
   const [image, setImage] = useState<string | null>(null);
+  const [dietRecords, setDietRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { currentUser: user } = useAuth();
+
+  const fetchDietRecords = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const startStr = startDate ? startDate.toISOString() : undefined;
+      const endStr = endDate ? endDate.toISOString() : undefined;
+      const res = await api.getDietRecords(user.uid, startStr, endStr);
+      if (res.success) setDietRecords(res.data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDietRecords();
+  }, [user]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -46,18 +75,48 @@ const DietRecordScreen = () => {
     }
   };
 
-  const handleRecordDiet = () => {
+  const handleRecordDiet = async () => {
     if (!foodName || !calories) {
       Alert.alert('Input error', 'Please enter the food name and calories.');
       return;
     }
-    // Call the backend API here to record diet
-    console.log('Record diet:', { foodName, calories, mealType, image });
-    Alert.alert('Success', 'Diet record successful!');
-    // Clear the form
-    setFoodName('');
-    setCalories('');
-    setImage(null);
+
+    if (!user) {
+      Alert.alert('Error', 'Please log in first.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/diet/record`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: user.uid,
+          foodName,
+          calories: parseInt(calories),
+          mealType,
+          imageUrl: image || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        Alert.alert('Success', 'Diet record saved!');
+        // Clear form
+        setFoodName('');
+        setCalories('');
+        setImage(null);
+        fetchDietRecords();
+      } else {
+        Alert.alert('Error', data.message || 'Save failed, please try again.')
+      }
+    } catch (error) {
+      console.error('Diet record error:', error);
+      Alert.alert('Error', 'Save failed, please check network connection and try again.');
+    }
   };
 
   return (
@@ -113,10 +172,61 @@ const DietRecordScreen = () => {
       <Button title="Record Diet" onPress={handleRecordDiet} />
 
       {/* Here you can add a display area for historical diet records */}
+
       <View style={styles.historyContainer}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <TouchableOpacity onPress={() => setShowStartPicker(true)} style={[styles.input, { flex: 1, marginRight: 5, justifyContent: 'center' }]}>
+            <Text>{startDate ? startDate.toLocaleDateString() : 'Start Date'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowEndPicker(true)} style={[styles.input, { flex: 1, marginLeft: 5, justifyContent: 'center' }]}>
+            <Text>{endDate ? endDate.toLocaleDateString() : 'End Date'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={fetchDietRecords} style={styles.filterButton}>
+            <Text style={styles.filterButtonText}>FILTER</Text>
+          </TouchableOpacity>
+        </View>
+        {showStartPicker && (
+          <DateTimePicker
+            value={startDate || new Date()}
+            mode="date"
+            display="default"
+            onChange={(_, date) => {
+              setShowStartPicker(false);
+              if (date) setStartDate(date);
+            }}
+          />
+        )}
+        {showEndPicker && (
+          <DateTimePicker
+            value={endDate || new Date()}
+            mode="date"
+            display="default"
+            onChange={(_, date) => {
+              setShowEndPicker(false);
+              if (date) setEndDate(date);
+            }}
+          />
+        )}
         <Text style={styles.subtitle}>Historical diet records</Text>
-        {/* Assume that data will be loaded from the backend here */}
-        <Text>No history records yet. </Text>
+        {loading ? (
+          <ActivityIndicator size="large" color="#007BFF" style={{ marginVertical: 20 }} />
+        ) : dietRecords.length === 0 ? (
+          <Text>No history records yet. </Text>
+        ) : (
+          dietRecords.map(record => (
+            <View key={record.id} style={{ marginBottom: 10 }}>
+              <Text>{record.foodName} - {record.calories} kcal - {record.mealType}</Text>
+              <Text style={{ color: '#888', fontSize: 12 }}>{new Date(record.createdAt).toLocaleString()}</Text>
+              {record.imageUrl ? (
+                <Image
+                  source={{ uri: record.imageUrl }}
+                  style={{ width: 120, height: 80, borderRadius: 8, marginTop: 4 }}
+                  resizeMode="cover"
+                />
+              ) : null}
+            </View>
+          ))
+        )}
       </View>
 
     </ScrollView>
@@ -200,6 +310,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     paddingTop: 20,
+  },
+
+  filterButton: {
+    backgroundColor: '#2196F3',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 5,
+    marginLeft: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 40,
+  },
+  filterButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    fontSize: 15,
   },
 });
 
