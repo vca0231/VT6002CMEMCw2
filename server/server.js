@@ -323,6 +323,36 @@ app.post('/api/exerciseTracking', async (req, res) => {
   }
 });
 
+// Get a user's exercise record (optional date filtering)
+app.get('/api/exercise/records/:uid', async (req, res) => {
+  const { uid } = req.params;
+  const { startDate, endDate } = req.query;
+  try {
+    let exerciseQuery;
+    if (startDate && endDate) {
+      exerciseQuery = query(
+        collection(db, 'exerciseRecords'),
+        where('uid', '==', uid),
+        where('createdAt', '>=', startDate),
+        where('createdAt', '<=', endDate),
+        orderBy('createdAt', 'desc')
+      );
+    } else {
+      exerciseQuery = query(
+        collection(db, 'exerciseRecords'),
+        where('uid', '==', uid),
+        orderBy('createdAt', 'desc')
+      );
+    }
+    const snapshot = await getDocs(exerciseQuery);
+    const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.status(200).json({ success: true, data: records });
+  } catch (error) {
+    console.error("Error in getting exercise records:", error);
+    res.status(500).json({ success: false, message: 'Failed to get exercise records' });
+  }
+});
+
 // Get daily exercise records for a specific user
 app.get('/api/exerciseTracking/:uid/daily', async (req, res) => {
   const { date } = req.query; // Date in YYYY-MM-DD format

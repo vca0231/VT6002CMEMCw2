@@ -23,7 +23,6 @@ export const api = {
         return response.json();
     },
 
-    // Get food records
     // Get diet records (optional date filtering)
     getDietRecords: async (uid: string, startDate?: string, endDate?: string) => {
         try {
@@ -49,6 +48,21 @@ export const api = {
         return response.json();
     },
 
+    // Get exercise records (optional date filtering)
+    getExerciseRecords: async (uid: string, startDate?: string, endDate?: string) => {
+        try {
+            let url = `${API_URL}/api/exercise/records/${uid}`;
+            if (startDate && endDate) {
+                url += `?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+            }
+            const response = await fetch(url);
+            return response.json();
+        } catch (error) {
+            console.error('Error getting exercise records:', error);
+            throw new Error('Failed to get exercise records, please try again later.');
+        }
+    },
+    
     // Reminder notification 
     createNotification: async (notificationData: any) => {
         const response = await fetch(`${API_URL}/api/notifications`, {
