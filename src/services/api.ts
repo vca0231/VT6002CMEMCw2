@@ -11,13 +11,16 @@ export const api = {
 
     //User configuration file 
     updateUserProfile: async (uid: string, profileData: any) => {
-        const response = await fetch(`${API_URL}/api/user/profile`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid, ...profileData })
-        });
-        return response.json();
-    },
+    const cleanProfileData = Object.fromEntries(
+      Object.entries(profileData).filter(([_, v]) => v !== undefined)
+    );
+    const response = await fetch(`${API_URL}/api/user/profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, ...cleanProfileData })
+    });
+    return response.json();
+},
 
     // food record 
     recordDiet: async (dietData: any) => {

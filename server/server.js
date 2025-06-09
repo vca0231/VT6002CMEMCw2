@@ -266,7 +266,7 @@ app.get('/api/users/:uid', async (req, res) => {
     if (userDoc.exists()) {
       res.json({ id: userDoc.id, ...userDoc.data() });
     } else {
-      res.status(404).send('User not found');
+      res.status(404).json({ success: false, message: 'User not found' });
     }
   } catch (error) {
     console.error("Error fetching user profile:", error);
@@ -623,33 +623,24 @@ app.post('/register', async (req, res) => {
 
 // 1. User Profile API
 app.post('/api/user/profile', async (req, res) => {
-  const { uid, name, age, gender, height, weight, calorieGoal, exerciseGoal, biometricEnabled } = req.body;
+  const { uid, ...profileData } = req.body;
+
+
+  const cleanProfileData = Object.fromEntries(
+    Object.entries(profileData).filter(([_, v]) => v !== undefined)
+  );
 
   try {
     const userRef = doc(db, 'users', uid);
     const userDoc = await getDoc(userRef);
     if (userDoc.exists()) {
       await updateDoc(userRef, {
-        name,
-        age: parseInt(age),
-        gender,
-        height: parseFloat(height),
-        weight: parseFloat(weight),
-        calorieGoal: parseInt(calorieGoal),
-        exerciseGoal: parseInt(exerciseGoal),
-        biometricEnabled,
+        ...cleanProfileData,
         updatedAt: new Date().toISOString()
       });
     } else {
       await setDoc(userRef, {
-        name,
-        age: parseInt(age),
-        gender,
-        height: parseFloat(height),
-        weight: parseFloat(weight),
-        calorieGoal: parseInt(calorieGoal),
-        exerciseGoal: parseInt(exerciseGoal),
-        biometricEnabled,
+        ...cleanProfileData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });

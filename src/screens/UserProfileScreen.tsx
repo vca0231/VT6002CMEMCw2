@@ -13,24 +13,31 @@ const UserProfileScreen = () => {
   const [exerciseGoal, setExerciseGoal] = useState('');
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const { currentUser: user } = useAuth();
+
 
   // Pull user information
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
       setLoading(true);
-      const res = await api.getUserProfile(user.uid);
-      if (res && res.id) {
-        setName(res.name || '');
-        setAge(res.age ? String(res.age) : '');
-        setGender(res.gender || '');
-        setHeight(res.height ? String(res.height) : '');
-        setWeight(res.weight ? String(res.weight) : '');
-        setCalorieGoal(res.calorieGoal ? String(res.calorieGoal) : '');
-        setExerciseGoal(res.exerciseGoal ? String(res.exerciseGoal) : ''); setBiometricEnabled(!!res.biometricEnabled);
+      try {
+        const res = await api.getUserProfile(user.uid);
+        if (res && res.id) {
+          setName(res.name || '');
+          setAge(res.age ? String(res.age) : '');
+          setGender(res.gender || '');
+          setHeight(res.height ? String(res.height) : '');
+          setWeight(res.weight ? String(res.weight) : '');
+          setCalorieGoal(res.calorieGoal ? String(res.calorieGoal) : '');
+          setExerciseGoal(res.exerciseGoal ? String(res.exerciseGoal) : ''); setBiometricEnabled(!!res.biometricEnabled);
+        }
+      } catch (e) {
+        Alert.alert('錯誤', '無法獲取個人資料，請稍後再試');
       }
       setLoading(false);
+      setHasFetched(true);
     };
     fetchProfile();
   }, [user]);
@@ -65,9 +72,6 @@ const UserProfileScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Personal Information and Health Goals</Text>
-      {loading ? (
-        <ActivityIndicator size="large" color="#007BFF" style={{ marginVertical: 20 }} />
-      ) : (
         <>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Basic Information</Text>
@@ -152,7 +156,6 @@ const UserProfileScreen = () => {
 
           <Button title="Save the Personal Data" onPress={handleSaveProfile} />
         </>
-      )}
     </ScrollView>
   );
 };
