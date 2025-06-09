@@ -4,18 +4,56 @@ import { View, Text, StyleSheet, TextInput, Button, ScrollView, TouchableOpacity
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
+const MET_VALUES: Record<string, number> = {
+  'Running': 7,
+  'Walking': 3.5,
+  'Cycling': 8,
+  'Swimming': 6,
+  'Strength training': 6,
+  'Yoga': 3,
+  'Other': 4,
+};
+
 const ExerciseTrackingScreen = () => {
   const [exerciseType, setExerciseType] = useState('Running');
   const [duration, setDuration] = useState('');
   const [distance, setDistance] = useState('');
-  const [caloriesBurned, setCaloriesBurned] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [exerciseRecords, setExerciseRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [caloriesBurned, setCaloriesBurned] = useState(0);
   const { currentUser: user } = useAuth();
+  const [userWeight, setUserWeight] = useState<number | null>(null);
+
+
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      const res = await api.getUserProfile(user.uid);
+      if (res && res.weight) {
+        setUserWeight(Number(res.weight));
+      }
+    };
+    fetchProfile();
+  }, [user]);
+
+  useEffect(() => {
+    if (!userWeight || !duration) {
+      setCaloriesBurned(0);
+      return;
+    }
+    const MET = MET_VALUES[exerciseType] || 4;
+    const hours = parseFloat(duration) / 60;
+    if (!isNaN(userWeight) && !isNaN(hours)) {
+      setCaloriesBurned(Math.round(MET * userWeight * hours));
+    } else {
+      setCaloriesBurned(0);
+    }
+  }, [exerciseType, duration, userWeight]);
 
   const fetchExerciseRecords = async () => {
     if (!user) return;
@@ -49,13 +87,12 @@ const ExerciseTrackingScreen = () => {
         exerciseType,
         duration: parseInt(duration),
         distance: distance ? parseFloat(distance) : 0,
-        caloriesBurned: caloriesBurned ? parseInt(caloriesBurned) : 0,
+        caloriesBurned,
       });
       if (res.success) {
         Alert.alert('Success', 'Exercise record saved!');
         setDuration('');
         setDistance('');
-        setCaloriesBurned('');
         fetchExerciseRecords();
       } else {
         Alert.alert('Error', res.message || 'Save failed, please try again.');
@@ -107,14 +144,8 @@ const ExerciseTrackingScreen = () => {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Calories burned (kcal, optional):</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter calories burned"
-          keyboardType="numeric"
-          value={caloriesBurned}
-          onChangeText={setCaloriesBurned}
-        />
+        <Text style={styles.label}>Calories burned (kcal):</Text>
+        <Text style={[styles.input, { color: '#333', backgroundColor: '#f0f0f0' }]}>{caloriesBurned}</Text>
       </View>
 
       <Button title="Record Exercise" onPress={handleRecordExercise} />

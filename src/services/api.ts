@@ -3,6 +3,12 @@ import { API_BASE_URL } from '@env';
 const API_URL = API_BASE_URL;
 
 export const api = {
+
+    getUserProfile: async (uid: string) => {
+        const response = await fetch(`${API_URL}/api/users/${uid}`);
+        return response.json();
+    },
+
     //User configuration file 
     updateUserProfile: async (uid: string, profileData: any) => {
         const response = await fetch(`${API_URL}/api/user/profile`, {
@@ -62,7 +68,7 @@ export const api = {
             throw new Error('Failed to get exercise records, please try again later.');
         }
     },
-    
+
     // Reminder notification 
     createNotification: async (notificationData: any) => {
         const response = await fetch(`${API_URL}/api/notifications`, {

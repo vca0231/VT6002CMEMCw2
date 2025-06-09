@@ -5,6 +5,7 @@ const { db } = require('./firebase'); // Import Firestore database instance from
 const { collection, doc, addDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, orderBy } = require("firebase/firestore");
 const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } = require("firebase/auth"); // Import Firebase Auth
 const admin = require('firebase-admin');
+const { setDoc } = require("firebase/firestore");
 
 const app = express();
 const PORT = 3000;
@@ -626,17 +627,33 @@ app.post('/api/user/profile', async (req, res) => {
 
   try {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
-      name,
-      age: parseInt(age),
-      gender,
-      height: parseFloat(height),
-      weight: parseFloat(weight),
-      calorieGoal: parseInt(calorieGoal),
-      exerciseGoal: parseInt(exerciseGoal),
-      biometricEnabled,
-      updatedAt: new Date().toISOString()
-    });
+    const userDoc = await getDoc(userRef);
+    if (userDoc.exists()) {
+      await updateDoc(userRef, {
+        name,
+        age: parseInt(age),
+        gender,
+        height: parseFloat(height),
+        weight: parseFloat(weight),
+        calorieGoal: parseInt(calorieGoal),
+        exerciseGoal: parseInt(exerciseGoal),
+        biometricEnabled,
+        updatedAt: new Date().toISOString()
+      });
+    } else {
+      await setDoc(userRef, {
+        name,
+        age: parseInt(age),
+        gender,
+        height: parseFloat(height),
+        weight: parseFloat(weight),
+        calorieGoal: parseInt(calorieGoal),
+        exerciseGoal: parseInt(exerciseGoal),
+        biometricEnabled,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
     res.status(200).json({ success: true, message: 'User profile updated' });
   } catch (error) {
     console.error("Update user profile error:", error);
