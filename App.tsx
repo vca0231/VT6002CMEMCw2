@@ -6,6 +6,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import Comment from './src/screens/Comments';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import UserProfileScreen from './src/screens/UserProfileScreen';
+import DataManagementScreen from './src/screens/DataManagementScreen';
 import { RootStackParamList } from './types/navigation';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
@@ -35,7 +36,15 @@ function AppContent() {
           name="UserProfile"
           component={UserProfileScreen}
           options={{
-            title: '我的個人資料',
+            title: 'My Profile',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="DataManagement"
+          component={DataManagementScreen}
+          options={{
+            title: 'Data Management',
             presentation: 'modal',
           }}
         />

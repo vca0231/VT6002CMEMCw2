@@ -11,16 +11,16 @@ export const api = {
 
     //User configuration file 
     updateUserProfile: async (uid: string, profileData: any) => {
-    const cleanProfileData = Object.fromEntries(
-      Object.entries(profileData).filter(([_, v]) => v !== undefined)
-    );
-    const response = await fetch(`${API_URL}/api/user/profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid, ...cleanProfileData })
-    });
-    return response.json();
-},
+        const cleanProfileData = Object.fromEntries(
+            Object.entries(profileData).filter(([_, v]) => v !== undefined)
+        );
+        const response = await fetch(`${API_URL}/api/user/profile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, ...cleanProfileData })
+        });
+        return response.json();
+    },
 
     // food record 
     recordDiet: async (dietData: any) => {
@@ -84,8 +84,26 @@ export const api = {
 
     // Get reminder 
     getNotifications: async (uid: string) => {
-        const response = await fetch(`${API_URL}/api/notifications/${uid}`);
-        return response.json();
+        try {
+            const response = await fetch(`${API_URL}/api/notifications/${uid}`);
+            // 檢查回應是否成功，或是否有內容
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error:', response.status, errorText);
+                return { success: false, message: errorText || 'Failed to fetch notifications' };
+            }
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                // 如果解析失敗，說明伺服器返回的不是合法的 JSON
+                console.error("Error parsing JSON from getNotifications:", e, "Response text:", text);
+                return { success: false, message: text || 'Invalid JSON response from server' };
+            }
+        } catch (error) {
+            console.error('Network or unknown error in getNotifications:', error);
+            return { success: false, message: 'Unable to connect to the server' };
+        }
     },
 
     // Delete reminder 

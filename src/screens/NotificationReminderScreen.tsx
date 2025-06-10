@@ -1,33 +1,98 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, Button, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+import * as Notifications from 'expo-notifications';
 // You might need to install a date picker library, e.g., npm install @react-native-community/datetimepicker
 // import DateTimePicker from '@react-native-community/datetimepicker';
 
 const NotificationReminderScreen = () => {
+  const { currentUser: user } = useAuth();
   const [reminderMessage, setReminderMessage] = useState('');
   const [reminderTime, setReminderTime] = useState(''); // Format: HH:MM
-  const [reminders, setReminders] = useState([
-    { id: '1', message: '記錄早餐', time: '08:00', type: 'diet' },
-    { id: '2', message: '運動時間', time: '18:30', type: 'exercise' },
-  ]);
+  type Reminder = {
+    id: string;
+    message: string;
+    time: string;
+    type: string;
+  };
 
-  const handleSetReminder = () => {
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+
+  const fetchReminders = async () => {
+    if (!user) return;
+    const res = await api.getNotifications(user.uid);
+    if (res.success) setReminders(res.data);
+    else setReminders([]);
+  };
+
+  useEffect(() => {
+    fetchReminders();
+  }, [user]);
+
+  const handleSetReminder = async () => {
     if (!reminderMessage || !reminderTime) {
       Alert.alert('Input error', 'Please enter the reminder content and time.');
       return;
     }
 
-    const newReminder = {
-      id: Date.now().toString(), // Simple unique ID for mock data
+    const res = await api.createNotification({
+      uid: user?.uid,
       message: reminderMessage,
       time: reminderTime,
-      type: 'general', // Default type, can be expanded
-    };
-    setReminders([...reminders, newReminder]);
-    Alert.alert('Success', 'Reminder set successfully!');
-    setReminderMessage('');
-    setReminderTime('');
-    // Call the backend API here to set a reminder
+      type: 'general'
+    });
+    if (res.success) {
+      Alert.alert('Success', 'Reminder set');
+      setReminderMessage('');
+      setReminderTime('');
+      fetchReminders();
+      // Set local push
+      scheduleLocalNotification(reminderMessage, reminderTime);
+    } else {
+      Alert.alert('Error', res.message || 'Setting failed');
+    }
+  };
+
+
+  // Local push
+  const scheduleLocalNotification = async (message: string, time: string) => {
+    const [hour, minute] = time.split(':').map(Number);
+
+    if (Platform.OS === 'web') {
+      //Web side instant notification
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('reminder', { body: message });
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification('reminder', { body: message });
+            }
+          });
+        }
+      }
+      return;
+    }
+
+    // The native side only reminds once
+    const now = new Date();
+    const trigger = new Date();
+    trigger.setHours(hour, minute, 0, 0);
+    if (trigger <= now) {
+      trigger.setDate(trigger.getDate() + 1); // If the time has passed, set it to tomorrow
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      content: { title: 'Reminder', body: message },
+      trigger, // Remind only once
+    } as any);
+  };
+
+  // Delete reminder
+  const handleDeleteReminder = async (id: string) => {
+    await api.deleteNotification(id);
+    fetchReminders();
   };
 
   return (
@@ -72,12 +137,23 @@ const NotificationReminderScreen = () => {
           <Text style={styles.infoText}>No reminders yet.</Text>
         ) : (
           reminders.map((item) => (
-            <View key={item.id} style={styles.reminderItem}>
+            <View key={item?.id} style={styles.reminderItem}>
               <View>
                 <Text style={styles.reminderMessage}>{item.message}</Text>
-                <Text style={styles.reminderTime}>{item.time} ({item.type})</Text>
+                <Text style={styles.reminderTime}>{item.time}</Text>
               </View>
-              <TouchableOpacity onPress={() => Alert.alert('Delete reminder', `Are you sure you want to delete ${item.message}? `)}>
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    'Delete reminder',
+                    `Are you sure you want to delete "${item.message}"?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => handleDeleteReminder(item.id) }
+                    ]
+                  );
+                }}
+              >
                 <Text style={styles.deleteButton}>Delete</Text>
               </TouchableOpacity>
             </View>

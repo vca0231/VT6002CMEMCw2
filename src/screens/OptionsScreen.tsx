@@ -26,6 +26,13 @@ const OptionsScreen = () => {
       >
         <Text style={styles.buttonText}>My Profile</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.button}
+        // Navigate to Data (presentation is defined in navigator options)
+        onPress={() => navigation.navigate('DataManagement')}
+      >
+        <Text style={styles.buttonText}>Data Management</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={handleLogout}>
         <Text style={styles.buttonText}>Logout</Text>

@@ -49,7 +49,7 @@ const MainTabNavigator = () => {
 <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
 <Tab.Screen name="DietTab" component={DietRecordScreen} options={{ title: 'Diet' }} />
 <Tab.Screen name="ExerciseTab" component={ExerciseTrackingScreen} options={{ title: 'Exercise' }} />
-<Tab.Screen name="DataManagement" component={DataManagementScreen} options={{ title: 'Data' }} />
+{/* <Tab.Screen name="DataManagement" component={HomeScreen} options={{ title: 'Data' }} /> */}
 <Tab.Screen name="StatisticsTab" component={StatisticsScreen} options={{ title: 'Statistics' }} />
 <Tab.Screen name="NotificationTab" component={NotificationReminderScreen} options={{ title: 'Reminder' }} />
 <Tab.Screen name="OptionsTab" component={OptionsScreen} options={{ title: 'Options' }} />

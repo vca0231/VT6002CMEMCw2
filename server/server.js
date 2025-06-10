@@ -523,26 +523,6 @@ app.post('/api/notifications/:uid', async (req, res) => {
   }
 });
 
-// Get all reminders for a specific user
-app.get('/api/notifications/:uid', async (req, res) => {
-  const { uid } = req.params;
-
-  try {
-    const q = query(
-      collection(db, 'reminders'),
-      where('userId', '==', uid),
-      orderBy('createdAt', 'asc')
-    );
-
-    const querySnapshot = await getDocs(q);
-    const userReminders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.json(userReminders);
-  } catch (error) {
-    console.error("Error fetching user reminders:", error);
-    res.status(500).send("Failed to fetch user reminders.");
-  }
-});
-
 // --- Location Services API Endpoints ---
 
 // Get nearby healthy restaurant recommendations
