@@ -1,3 +1,4 @@
+require('dotenv').config({ path: '../.env' });
 const express = require('express');
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid'); // For generating unique IDs
@@ -6,6 +7,11 @@ const { collection, doc, addDoc, getDoc, getDocs, updateDoc, deleteDoc, query, w
 const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } = require("firebase/auth"); // Import Firebase Auth
 const admin = require('firebase-admin');
 const { setDoc } = require("firebase/firestore");
+const { Client } = require('@googlemaps/google-maps-services-js');
+const googleMapsClient = new Client({});
+
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_API_KEY;
+console.log('GOOGLE_PLACES_API_KEY:', `"${GOOGLE_PLACES_API_KEY}"`);
 
 const app = express();
 const PORT = 3000;
@@ -525,48 +531,37 @@ app.post('/api/notifications/:uid', async (req, res) => {
 
 // --- Location Services API Endpoints ---
 
-// Get nearby healthy restaurant recommendations
-app.get('/api/location/restaurants', async (req, res) => {
-  const { latitude, longitude, radius } = req.query; // Radius in meters
+/* // Get nearby healthy restaurant recommendations
+app.get('/api/places/nearby', async (req, res) => {
+  const { latitude, longitude, radius = 1500, type = 'restaurant' } = req.query;
 
-  if (!latitude || !longitude) {
-    return res.status(400).json({ success: false, message: 'Latitude and longitude are required.' });
+  try {
+    const response = await googleMapsClient.placesNearby({
+      params: {
+        location: `${latitude},${longitude}`,
+        radius: radius,
+        type: type,
+        key: GOOGLE_PLACES_API_KEY,
+        keyword: 'healthy food'
+      }
+    });
+
+    // Add health score
+    const places = response.data.results.map(place => ({
+      ...place,
+      healthScore: calculateHealthScore(place), // Custom health score function
+    }));
+
+    res.json({ success: true, data: places });
+  } catch (error) {
+    console.error("Error fetching nearby places:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch nearby places.',
+      error: error.message
+    });
   }
-
-  // In a real application, you would integrate with a third-party API like Google Places API here
-  // For now, let's return some mock data.
-  const mockRestaurants = [
-    {
-      id: '1',
-      name: 'Healthy Bites Cafe',
-      address: '123 Health St, City',
-      cuisine: 'Healthy',
-      rating: 4.5,
-      latitude: parseFloat(latitude) + 0.001,
-      longitude: parseFloat(longitude) + 0.001,
-    },
-    {
-      id: '2',
-      name: 'Green Leaf Eatery',
-      address: '456 Green Ave, Town',
-      cuisine: 'Vegan',
-      rating: 4.8,
-      latitude: parseFloat(latitude) - 0.002,
-      longitude: parseFloat(longitude) + 0.003,
-    },
-  ];
-
-  // Filter by radius (simple approximation for mock data)
-  const filteredRestaurants = mockRestaurants.filter(restaurant => {
-    const dist = Math.sqrt(Math.pow(restaurant.latitude - parseFloat(latitude), 2) + Math.pow(restaurant.longitude - parseFloat(longitude), 2));
-    // Convert simple degree difference to approximate meters for filtering. This is a very rough estimate.
-    // A more accurate calculation would use Haversine formula.
-    const approximateDistanceMeters = dist * 111139; // Roughly meters per degree of latitude/longitude
-    return !radius || approximateDistanceMeters <= parseFloat(radius);
-  });
-
-  res.json(filteredRestaurants);
-});
+}); */
 
 // Login or Register Endpoint
 app.post('/login', async (req, res) => {
@@ -785,6 +780,89 @@ app.delete('/api/notifications/:id', async (req, res) => {
   } catch (error) {
     console.error("Delete reminder error:", error);
     res.status(500).json({ success: false, message: 'Reminder deleted failed' });
+  }
+});
+
+//google places API endpoint
+// places/nearby endpoint in server.js
+app.get('/api/places/nearby', async (req, res) => {
+  const { latitude, longitude, radius = 1500, type = 'restaurant' } = req.query;
+
+  try {
+    const response = await googleMapsClient.placesNearby({
+      params: {
+        location: `${latitude},${longitude}`,
+        radius: radius,
+        type: type,
+        key: GOOGLE_PLACES_API_KEY,
+        keyword: 'healthy food'
+      }
+    });
+
+    
+    const places = response.data.results.map(place => ({
+      id: place.place_id,
+      name: place.name,
+      address: place.vicinity || place.formatted_address || '',
+      rating: place.rating || 0,
+      photos: place.photos
+        ? [ 
+          `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
+        ]
+        : [],
+      isOpen: place.opening_hours ? place.opening_hours.open_now : false,
+      location: place.geometry.location,
+      healthScore: calculateHealthScore(place),
+    }));
+
+    res.json({ success: true, data: places });
+  } catch (error) {
+    console.error("Error fetching nearby places:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch nearby places.',
+      error: error.message
+    });
+  }
+});
+
+// Add health score calculation function
+function calculateHealthScore(place) {
+  // Calculate health score based on restaurant type, rating, etc.
+  let score = 0;
+
+  // Check restaurant type
+  if (place.types.includes('health_food')) score += 3;
+  if (place.types.includes('vegetarian')) score += 2;
+  if (place.types.includes('vegan')) score += 2;
+
+  // Consider rating
+  if (place.rating >= 4.5) score += 2;
+  else if (place.rating >= 4.0) score += 1;
+
+  return score;
+}
+
+// Get restaurant details
+app.get('/api/places/details/:placeId', async (req, res) => {
+  const { placeId } = req.params;
+
+  try {
+    const response = await googleMapsClient.placeDetails({
+      params: {
+        place_id: placeId,
+        key: GOOGLE_PLACES_API_KEY,
+        fields: ['name', 'formatted_address', 'rating', 'reviews', 'opening_hours', 'photos', 'website', 'formatted_phone_number']
+      }
+    });
+
+    res.json({ success: true, data: response.data.result });
+  } catch (error) {
+    console.error("Error fetching place details:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch place details.'
+    });
   }
 });
 
