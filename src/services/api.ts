@@ -128,5 +128,49 @@ export const api = {
     getStatistics: async (uid: string, startDate: string, endDate: string) => {
         const response = await fetch(`${API_URL}/api/statistics/${uid}?startDate=${startDate}&endDate=${endDate}`);
         return response.json();
-    }
+    },
+
+    // Get nearby healthy restaurants
+    getNearbyHealthyRestaurants: async (latitude: number, longitude: number, radius?: number) => {
+        try {
+            const response = await fetch(
+                `${API_URL}/api/places/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radius || 1500}`
+            );
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error getting nearby restaurants:', error);
+            throw new Error('Failed to get nearby restaurants');
+        }
+    },
+
+    // Get restaurant details
+    getRestaurantDetails: async (placeId: string) => {
+        try {
+            const response = await fetch(`${API_URL}/api/places/details/${placeId}`);
+            return response.json();
+        } catch (error) {
+            console.error('Error getting restaurant details:', error);
+            throw new Error('Failed to get restaurant details');
+        }
+    },
+
+    //Biometric related API 
+    updateBiometricStatus: async (uid: string, biometricEnabled: boolean) => {
+        const response = await fetch(`${API_URL}/api/user/profile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                uid,
+                biometricEnabled,
+                biometricUpdatedAt: new Date().toISOString()
+            })
+        });
+        return response.json();
+    },
 };

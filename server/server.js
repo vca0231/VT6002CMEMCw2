@@ -572,12 +572,54 @@ app.post('/login', async (req, res) => {
   }
 
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const customToken = await admin.auth().createCustomToken(userCredential.user.uid);
-    res.status(200).json({ success: true, token: customToken, uid: userCredential.user.uid });
+    // Try to log in first
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const customToken = await admin.auth().createCustomToken(userCredential.user.uid);
+      res.status(200).json({ success: true, token: customToken, uid: userCredential.user.uid });
+    } catch (loginError) {
+      // If login failed, check if the user does not exist
+      if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/invalid-credential') {
+        // Try to register a new user
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const customToken = await admin.auth().createCustomToken(userCredential.user.uid);
+
+          // Create a user profile
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
+            email: email,
+            createdAt: new Date().toISOString(),
+            biometricEnabled: false
+          });
+
+          res.status(201).json({
+            success: true,
+            token: customToken,
+            uid: userCredential.user.uid,
+            isNewUser: true
+          });
+        } catch (registerError) {
+          console.error("Registration error:", registerError);
+          res.status(400).json({
+            success: false,
+            message: registerError.message || 'Registration failed'
+          });
+        }
+      } else {
+        // Other login errors 
+        console.error("Login error:", loginError);
+        res.status(401).json({
+          success: false,
+          message: loginError.message || 'Login failed'
+        });
+      }
+    }
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(401).json({ message: error.message });
+    console.error("Authentication error:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Authentication failed'
+    });
   }
 });
 
@@ -799,14 +841,14 @@ app.get('/api/places/nearby', async (req, res) => {
       }
     });
 
-    
+
     const places = response.data.results.map(place => ({
       id: place.place_id,
       name: place.name,
       address: place.vicinity || place.formatted_address || '',
       rating: place.rating || 0,
       photos: place.photos
-        ? [ 
+        ? [
           `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
         ]
         : [],
@@ -862,6 +904,39 @@ app.get('/api/places/details/:placeId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch place details.'
+    });
+  }
+});
+
+// Update user biometric status
+app.post('/api/user/biometric', async (req, res) => {
+  const { uid, biometricEnabled } = req.body;
+
+  try {
+    const userRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userRef);
+
+    if (userDoc.exists()) {
+      await updateDoc(userRef, {
+        biometricEnabled,
+        biometricUpdatedAt: new Date().toISOString()
+      });
+      res.status(200).json({
+        success: true,
+        message: 'Biometric status updated',
+        biometricEnabled
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'User does not exist'
+      });
+    }
+  } catch (error) {
+    console.error("Error updating biometric status:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update biometric status'
     });
   }
 });

@@ -1,0 +1,17 @@
+[33m2be9cbd[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m add readme and notfication sound
+[33m3da1b56[m add recipe page
+[33m9bbbb23[m add bio login logic and password hash
+[33m142c25d[m change project name
+[33m47308e1[m change project name
+[33m1c3fbab[m change home screen ui and gender to a select
+[33md22254d[m fix bug and change the ui
+[33m7eff9e9[m fix bug and change the ui
+[33mc5b6fb3[m fix login api and add biometrics and data management api
+[33m7e0eac1[m sync code from backup-branch
+[33m9e9f474[m add call google api to get restaurants api and restaurants front end.
+[33m2018301[m add notification reminder api
+[33mb272236[m fix call api bug
+[33m032d4c2[m add userprofiles api and change the caloris burn to auto cal
+[33mab4a31a[m add exercise tracking api and filter
+[33m9d454fe[m add DietRecord api and filter
+[33md864546[m first commit

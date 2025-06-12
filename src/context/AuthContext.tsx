@@ -11,6 +11,8 @@ interface AuthContextType {
   register: (email: string, password: string) => Promise<any>; */
   logout: () => Promise<void>;
   signInWithIdToken: (idToken: string) => Promise<any>;
+  isBiometricEnabled: boolean;
+  toggleBiometric: (enabled: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true); // Tracks initial auth state loading
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -28,9 +31,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Optionally store user token/uid in AsyncStorage for quick access if needed elsewhere
         await AsyncStorage.setItem('userToken', await user.getIdToken());
         await AsyncStorage.setItem('userUid', user.uid);
+       // Check biometric settings
+        const biometricEnabled = await AsyncStorage.getItem('biometricEnabled');
+        setIsBiometricEnabled(biometricEnabled === 'true');
       } else {
         await AsyncStorage.removeItem('userToken');
         await AsyncStorage.removeItem('userUid');
+        setIsBiometricEnabled(false);
       }
     });
     return unsubscribe;
@@ -69,15 +76,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const toggleBiometric = async (enabled: boolean) => {
+    try {
+      await AsyncStorage.setItem('biometricEnabled', String(enabled));
+      setIsBiometricEnabled(enabled);
+    } catch (error) {
+      console.error('Error toggling biometric:', error);
+      Alert.alert('Error', 'Failed to update biometric settings');
+    }
+  };
+
   const logout = async () => {
     console.log('Logout function called.');
     try {
       await signOut(auth);
-      console.log('Firebase signOut successful.');
-      // onAuthStateChanged will handle setting currentUser to null
+      // Clear all authentication related storage
+      await AsyncStorage.multiRemove([
+        'userToken',
+        'userUid',
+        'userCredentials',
+        'biometricEnabled'
+      ]);
+      console.log('Firebase signOut successful and storage cleared.');
     } catch (error: any) {
       console.error("Logout error:", error);
-      Alert.alert('登出失敗', '登出過程中發生錯誤。');
+      Alert.alert('Logout failed', 'An error occurred during the logout process.');
     }
   };
 
@@ -85,13 +108,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>驗證身份中...</Text>
+       <Text style={styles.loadingText}>Verifying identity...</Text>
       </View>
     );
   }
 
   return (
-    <AuthContext.Provider value={{ currentUser, loadingAuth, logout, signInWithIdToken }}>
+    <AuthContext.Provider value={{ 
+      currentUser, 
+      loadingAuth, 
+      logout, 
+      signInWithIdToken,
+      isBiometricEnabled,
+      toggleBiometric
+    }}>
       {children}
     </AuthContext.Provider>
   );

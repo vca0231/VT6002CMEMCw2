@@ -13,6 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+       "config": {
+        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
+      },
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "This app requires Face ID for biometric authentication."
+      },
       "supportsTablet": true
     },
     "android": {

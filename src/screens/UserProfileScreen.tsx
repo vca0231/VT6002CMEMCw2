@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Button, ScrollView, Alert, Switch, ActivityIndicator } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import ReactNativeBiometrics from 'react-native-biometrics';
+
+const rnBiometrics = new ReactNativeBiometrics();
 
 const UserProfileScreen = () => {
   const [name, setName] = useState('');
@@ -11,10 +14,9 @@ const UserProfileScreen = () => {
   const [weight, setWeight] = useState(''); // kg
   const [calorieGoal, setCalorieGoal] = useState('');
   const [exerciseGoal, setExerciseGoal] = useState('');
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
-  const { currentUser: user } = useAuth();
+  const { currentUser: user, isBiometricEnabled, toggleBiometric } = useAuth();
 
 
   // Pull user information
@@ -31,10 +33,10 @@ const UserProfileScreen = () => {
           setHeight(res.height ? String(res.height) : '');
           setWeight(res.weight ? String(res.weight) : '');
           setCalorieGoal(res.calorieGoal ? String(res.calorieGoal) : '');
-          setExerciseGoal(res.exerciseGoal ? String(res.exerciseGoal) : ''); setBiometricEnabled(!!res.biometricEnabled);
+          setExerciseGoal(res.exerciseGoal ? String(res.exerciseGoal) : '');
         }
       } catch (e) {
-        Alert.alert('錯誤', '無法獲取個人資料，請稍後再試');
+       Alert.alert('Error', 'Unable to obtain personal information, please try again later');
       }
       setLoading(false);
       setHasFetched(true);
@@ -48,7 +50,7 @@ const UserProfileScreen = () => {
       return;
     }
     setLoading(true);
-    const profileData = { name, age, gender, height, weight, calorieGoal, exerciseGoal, biometricEnabled };
+    const profileData = { name, age, gender, height, weight, calorieGoal, exerciseGoal };
     const res = await api.updateUserProfile(user.uid, profileData);
     setLoading(false);
     if (res.success) {
@@ -59,103 +61,137 @@ const UserProfileScreen = () => {
     }
   };
 
-  const handleBiometricToggle = () => {
-    const newState = !biometricEnabled;
-    setBiometricEnabled(newState);
-    if (newState) {
-      Alert.alert('Biometric Authentication', 'Fingerprint/Face Recognition is enabled.');
+  const checkBiometricSupport = async () => {
+    try {
+      const { available, biometryType } = await rnBiometrics.isSensorAvailable();
+      if (!available) {
+        Alert.alert('prompt', 'Your device does not support biometrics');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Biometric check error:', error);
+      return false;
+    }
+  };
+
+  const handleBiometricToggle = async () => {
+    const isSupported = await checkBiometricSupport();
+    if (!isSupported) {
+      toggleBiometric(false);
+      return;
+    }
+
+    if (!isBiometricEnabled) {
+      try {
+        const { success } = await rnBiometrics.simplePrompt({
+          promptMessage: 'Please verify your identity to enable biometrics',
+          cancelButtonText: 'Cancel'
+        });
+
+        if (success) {
+          await toggleBiometric(true);
+          Alert.alert('Success', 'Biometric authentication enabled');
+        }
+      } catch (error) {
+        console.error('Biometric verification error:', error);
+        Alert.alert('Error', 'Biometric verification failed');
+      }
     } else {
-      Alert.alert('Biometric Authentication', 'Fingerprint/Face Recognition is disabled.');
+      await toggleBiometric(false);
+      Alert.alert('Success', 'Biometric authentication disabled');
     }
   };
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Personal Information and Health Goals</Text>
-        <>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Basic Information</Text>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Name:</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Age:</Text>
-              <TextInput
-                style={styles.input}
-                value={age}
-                onChangeText={setAge}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Gender:</Text>
-              <TextInput
-                style={styles.input}
-                value={gender}
-                onChangeText={setGender}
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Height (cm):</Text>
-              <TextInput
-                style={styles.input}
-                value={height}
-                onChangeText={setHeight}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Weight (kg):</Text>
-              <TextInput
-                style={styles.input}
-                value={weight}
-                onChangeText={setWeight}
-                keyboardType="numeric"
-              />
-            </View>
+      <>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Basic Information</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Name:</Text>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+            />
           </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Health Goals</Text>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Daily calorie goal (kcal):</Text>
-              <TextInput
-                style={styles.input}
-                value={calorieGoal}
-                onChangeText={setCalorieGoal}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Daily exercise duration goal (min):</Text>
-              <TextInput
-                style={styles.input}
-                value={exerciseGoal}
-                onChangeText={setExerciseGoal}
-                keyboardType="numeric"
-              />
-            </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Age:</Text>
+            <TextInput
+              style={styles.input}
+              value={age}
+              onChangeText={setAge}
+              keyboardType="numeric"
+            />
           </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Security Settings</Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>Enable biometric authentication (fingerprint/face):</Text>
-              <Switch
-                onValueChange={handleBiometricToggle}
-                value={biometricEnabled}
-              />
-            </View>
-            <Text style={styles.infoText}>Once turned on, you can use fingerprint or facial recognition to quickly log in and access apps.</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Gender:</Text>
+            <TextInput
+              style={styles.input}
+              value={gender}
+              onChangeText={setGender}
+            />
           </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Height (cm):</Text>
+            <TextInput
+              style={styles.input}
+              value={height}
+              onChangeText={setHeight}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Weight (kg):</Text>
+            <TextInput
+              style={styles.input}
+              value={weight}
+              onChangeText={setWeight}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
 
-          <Button title="Save the Personal Data" onPress={handleSaveProfile} />
-        </>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Health Goals</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Daily calorie goal (kcal):</Text>
+            <TextInput
+              style={styles.input}
+              value={calorieGoal}
+              onChangeText={setCalorieGoal}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Daily exercise duration goal (min):</Text>
+            <TextInput
+              style={styles.input}
+              value={exerciseGoal}
+              onChangeText={setExerciseGoal}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Security Settings</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Enable biometric authentication (fingerprint/face):</Text>
+            <Switch
+              onValueChange={handleBiometricToggle}
+              value={isBiometricEnabled}
+            />
+          </View>
+          <Text style={styles.infoText}>
+            Once enabled, you can use fingerprint or facial recognition to quickly log in to the app.
+          </Text>
+        </View>
+
+        <Button title="Save the Personal Data" onPress={handleSaveProfile} />
+      </>
     </ScrollView>
   );
 };

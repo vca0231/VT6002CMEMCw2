@@ -1,34 +1,115 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, Button, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Switch, Button, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { api } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DataManagementScreen = () => {
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState('Never synced');
+  const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState('');
 
-  const handleToggleCloudSync = () => {
+  useEffect(() => {
+    // Get user ID from AsyncStorage
+    const getUserId = async () => {
+      try {
+        const storedUserId = await AsyncStorage.getItem('userId');
+        if (storedUserId) {
+          setUserId(storedUserId);
+          // Get the last synchronization time
+          const lastSync = await AsyncStorage.getItem('lastSyncTime');
+          if (lastSync) {
+            setLastSyncTime(new Date(lastSync).toLocaleString());
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user ID:', error);
+      }
+    };
+    getUserId();
+  }, []);
+
+  const handleToggleCloudSync = async () => {
     const newState = !cloudSyncEnabled;
     setCloudSyncEnabled(newState);
     if (newState) {
-      Alert.alert('Cloud Sync', 'Cloud Sync is on. Data will be automatically synced to Firebase.');
-      // Trigger the actual sync logic here
-      setLastSyncTime(new Date().toLocaleString());
+      try {
+        setIsLoading(true);
+        // When cloud sync is enabled, synchronize immediately
+        await handleManualBackup();
+        Alert.alert('Cloud sync', 'Cloud sync is enabled. Data will be automatically synchronized to Firebase.');
+      } catch (error) {
+        console.error('Error enabling cloud sync:', error);
+        Alert.alert('Error', 'An error occurred when enabling cloud sync.');
+        setCloudSyncEnabled(false);
+      } finally {
+        setIsLoading(false);
+      }
     } else {
-      Alert.alert('Cloud Sync', 'Cloud Sync is off.');
+      Alert.alert('Cloud sync', 'Cloud sync is disabled.');
     }
   };
 
-  const handleManualBackup = () => {
-    Alert.alert('Manual backup', 'Backing up your data to the cloud...');
-    // Trigger the manual backup logic here
-    setTimeout(() => {
-      setLastSyncTime(new Date().toLocaleString());
-      Alert.alert('Manual backup', 'Data backup successful!');
-    }, 2000);
+  const handleManualBackup = async () => {
+    if (!userId) {
+      Alert.alert('Error', 'User ID not found, please log in first.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      // Sync data to the cloud
+      const response = await api.syncData(userId);
+
+      if (response.success) {
+        const currentTime = new Date().toISOString();
+        setLastSyncTime(new Date().toLocaleString());
+        // Save synchronization time to local storage
+        await AsyncStorage.setItem('lastSyncTime', currentTime);
+        Alert.alert('Backup successful', 'Data has been successfully backed up to the cloud!');
+      } else {
+        throw new Error(response.message || 'Backup failed');
+      }
+    } catch (error) {
+      console.error('Backup error:', error);
+      Alert.alert('Backup failed', 'An error occurred while backing up data, please try again later. ');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRestoreData = () => {
-    Alert.alert('Restore data', 'Restoring data from the cloud... (This function is to be implemented)');
-    // Trigger data recovery logic here
+  const handleRestoreData = async () => {
+    if (!userId) {
+      Alert.alert('Error', 'User ID not found, please log in first.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Get all data for the user
+      const [dietResponse, exerciseResponse, notificationResponse] = await Promise.all([
+        api.getDietRecords(userId),
+        api.getExerciseRecords(userId),
+        api.getNotifications(userId)
+      ]);
+
+      if (dietResponse.success && exerciseResponse.success && notificationResponse.success) {
+        // Save data to local storage
+        await AsyncStorage.setItem('dietRecords', JSON.stringify(dietResponse.data));
+        await AsyncStorage.setItem('exerciseRecords', JSON.stringify(exerciseResponse.data));
+        await AsyncStorage.setItem('notifications', JSON.stringify(notificationResponse.data));
+
+        Alert.alert('Restore successful', 'Data has been successfully restored from the cloud!');
+      } else {
+        throw new Error('Restore data failed');
+      }
+    } catch (error) {
+      console.error('Restore error:', error);
+      Alert.alert('Restore failed', 'An error occurred while restoring data from the cloud. Please try again later.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -42,6 +123,7 @@ const DataManagementScreen = () => {
           <Switch
             onValueChange={handleToggleCloudSync}
             value={cloudSyncEnabled}
+            disabled={isLoading}
           />
         </View>
         <Text style={styles.infoText}>Last sync time: {lastSyncTime}</Text>
@@ -50,9 +132,16 @@ const DataManagementScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Manual operation</Text>
         <View style={styles.buttonGroup}>
-          <Button title="Back up data now" onPress={handleManualBackup} />
+          <Button
+            title="Back up data now"
+            onPress={handleManualBackup}
+            disabled={isLoading} />
           <View style={{ height: 10 }} />
-          <Button title="Restore data from the cloud" onPress={handleRestoreData} color="#FF9800" />
+          <Button
+            title="Restore data from the cloud"
+            onPress={handleRestoreData}
+            color="#FF9800"
+            disabled={isLoading} />
         </View>
       </View>
 
@@ -63,6 +152,13 @@ const DataManagementScreen = () => {
           We use end-to-end encryption and biometric authentication to protect your privacy.
         </Text>
       </View>
+
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0000ff" />
+          <Text style={styles.loadingText}>Processing...</Text>
+        </View>
+      )}
 
     </ScrollView>
   );
@@ -118,6 +214,21 @@ const styles = StyleSheet.create({
   },
   buttonGroup: {
     marginTop: 10,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333',
   },
 });
 
