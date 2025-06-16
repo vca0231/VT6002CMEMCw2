@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { View, Text, StyleSheet, TextInput, Button, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Button, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
@@ -55,6 +55,11 @@ const ExerciseTrackingScreen = () => {
     }
   }, [exerciseType, duration, userWeight]);
 
+  const handleResetFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+  };
+
   const fetchExerciseRecords = async () => {
     if (!user) return;
     setLoading(true);
@@ -70,7 +75,7 @@ const ExerciseTrackingScreen = () => {
 
   useEffect(() => {
     fetchExerciseRecords();
-  }, [user]);
+  }, [user, startDate, endDate]);
 
   const handleRecordExercise = async () => {
     if (!exerciseType || !duration) {
@@ -104,99 +109,115 @@ const ExerciseTrackingScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Record your exercise</Text>
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=800&q=80' }}
+        style={styles.backgroundImage}
+        blurRadius={2}
+      />
+      <View style={styles.contentContainer}>
+        <Text style={styles.title}>Record your exercise</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Exercise type:</Text>
-        <View style={styles.exerciseTypeContainer}>
-          {['Running', 'Walking', 'Cycling', 'Swimming', 'Strength training', 'Yoga', 'Other'].map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[styles.exerciseTypeButton, exerciseType === type && styles.selectedExerciseTypeButton]}
-              onPress={() => setExerciseType(type)}
-            >
-              <Text style={[styles.exerciseTypeButtonText, exerciseType === type && styles.selectedExerciseTypeButtonText]}>{type}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Duration (minutes):</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter duration"
-          keyboardType="numeric"
-          value={duration}
-          onChangeText={setDuration}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Distance (km, optional):</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter distance"
-          keyboardType="numeric"
-          value={distance}
-          onChangeText={setDistance}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Calories burned (kcal):</Text>
-        <Text style={[styles.input, { color: '#333', backgroundColor: '#f0f0f0' }]}>{caloriesBurned}</Text>
-      </View>
-
-      <Button title="Record Exercise" onPress={handleRecordExercise} />
-
-      <View style={styles.historyContainer}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <TouchableOpacity onPress={() => setShowStartPicker(true)} style={[styles.input, { flex: 1, marginRight: 5, justifyContent: 'center' }]}>
-            <Text>{startDate ? startDate.toLocaleDateString() : 'Start Date'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowEndPicker(true)} style={[styles.input, { flex: 1, marginLeft: 5, justifyContent: 'center' }]}>
-            <Text>{endDate ? endDate.toLocaleDateString() : 'End Date'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={fetchExerciseRecords} style={styles.filterButton}>
-            <Text style={styles.filterButtonText}>FILTER</Text>
-          </TouchableOpacity>
-        </View>
-        {showStartPicker && (
-          <DateTimePicker
-            value={startDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={(_, date) => {
-              setShowStartPicker(false);
-              if (date) setStartDate(date);
-            }}
-          />
-        )}
-        {showEndPicker && (
-          <DateTimePicker
-            value={endDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={(_, date) => {
-              setShowEndPicker(false);
-              if (date) setEndDate(date);
-            }}
-          />
-        )}
-        <Text style={styles.subtitle}>Historical exercise records</Text>
-        {loading ? (
-          <ActivityIndicator size="large" color="#007BFF" style={{ marginVertical: 20 }} />
-        ) : exerciseRecords.length === 0 ? (
-          <Text>No history record yet. </Text>
-        ) : (
-          exerciseRecords.map(record => (
-            <View key={record.id} style={{ marginBottom: 10 }}>
-              <Text>{record.exerciseType} - {record.duration} min - {record.distance} km - {record.caloriesBurned} kcal</Text>
-              <Text style={{ color: '#888', fontSize: 12 }}>{new Date(record.createdAt).toLocaleString()}</Text>
+        <View style={styles.card}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Exercise type:</Text>
+            <View style={styles.exerciseTypeContainer}>
+              {['Running', 'Walking', 'Cycling', 'Swimming', 'Strength training', 'Yoga', 'Other'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.exerciseTypeButton, exerciseType === type && styles.selectedExerciseTypeButton]}
+                  onPress={() => setExerciseType(type)}
+                >
+                  <Text style={[styles.exerciseTypeButtonText, exerciseType === type && styles.selectedExerciseTypeButtonText]}>{type}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          ))
-        )}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Duration (minutes):</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter duration"
+              keyboardType="numeric"
+              value={duration}
+              onChangeText={setDuration}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Distance (km, optional):</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter distance"
+              keyboardType="numeric"
+              value={distance}
+              onChangeText={setDistance}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Calories burned (kcal):</Text>
+            <Text style={[styles.input, { color: '#023047', backgroundColor: '#f1faee' }]}>{caloriesBurned}</Text>
+          </View>
+
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleRecordExercise}>
+              <Text style={styles.actionButtonText}>Record Exercise</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <TouchableOpacity onPress={() => setShowStartPicker(true)} style={[styles.input, { flex: 2, marginRight: 3, justifyContent: 'center' }]}>
+              <Text>{startDate ? startDate.toLocaleDateString() : 'Start Date'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowEndPicker(true)} style={[styles.input, { flex: 2, marginLeft: 3, justifyContent: 'center' }]}>
+              <Text>{endDate ? endDate.toLocaleDateString() : 'End Date'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={fetchExerciseRecords} style={[styles.filterButton, { flex: 1, marginLeft: 5, paddingHorizontal: 0 }]}>
+              <Text style={styles.filterButtonText}>FILTER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleResetFilter} style={[styles.filterButton, { flex: 1, backgroundColor: '#aaa', marginLeft: 5, paddingHorizontal: 0 }]}>
+              <Text style={styles.filterButtonText}>RESET</Text>
+            </TouchableOpacity>
+          </View>
+          {showStartPicker && (
+            <DateTimePicker
+              value={startDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={(_, date) => {
+                setShowStartPicker(false);
+                if (date) setStartDate(date);
+              }}
+            />
+          )}
+          {showEndPicker && (
+            <DateTimePicker
+              value={endDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={(_, date) => {
+                setShowEndPicker(false);
+                if (date) setEndDate(date);
+              }}
+            />
+          )}
+          <Text style={styles.subtitle}>Historical exercise records</Text>
+          {loading ? (
+            <ActivityIndicator size="large" color="#219ebc" style={{ marginVertical: 20 }} />
+          ) : exerciseRecords.length === 0 ? (
+            <Text style={styles.infoText}>No history record yet. </Text>
+          ) : (
+            exerciseRecords.map(record => (
+              <View key={record.id} style={styles.recordItem}>
+                <Text style={styles.recordText}>{record.exerciseType} - {record.duration} min - {record.distance} km - {record.caloriesBurned} kcal</Text>
+                <Text style={styles.recordTime}>{new Date(record.createdAt).toLocaleString()}</Text>
+              </View>
+            ))
+          )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -205,22 +226,42 @@ const ExerciseTrackingScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#caf0f8',
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    opacity: 0.3,
+  },
+  contentContainer: {
+    flex: 1,
     padding: 20,
-    backgroundColor: '#f8f8f8',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginTop: 40,
     textAlign: 'center',
-    color: '#333',
+    color: '#219ebc',
   },
   subtitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 10,
-    color: '#555',
+    color: '#023047',
+  },
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
+    shadowColor: '#90e0ef',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
   inputGroup: {
     marginBottom: 15,
@@ -228,15 +269,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 5,
-    color: '#666',
+    color: '#023047',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#8ecae6',
     padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
+    borderRadius: 12,
+    backgroundColor: '#f1faee',
     fontSize: 16,
+    color: '#023047',
   },
   exerciseTypeContainer: {
     flexDirection: 'row',
@@ -252,36 +294,72 @@ const styles = StyleSheet.create({
     margin: 5,
   },
   selectedExerciseTypeButton: {
-    backgroundColor: '#6200EE',
+    backgroundColor: '#219ebc',
   },
   exerciseTypeButtonText: {
-    color: '#333',
+    color: '#023047',
     fontWeight: 'bold',
   },
   selectedExerciseTypeButtonText: {
     color: '#fff',
   },
-  historyContainer: {
-    marginTop: 30,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 20,
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#219ebc',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   filterButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#219ebc',
     paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 5,
+    paddingHorizontal: 0,
+    borderRadius: 12,
     marginLeft: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 40,
+    height: 35,
+    minWidth: 29,
   },
   filterButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     letterSpacing: 1,
-    fontSize: 15,
+    fontSize: 13,
+  },
+  recordItem: {
+    marginBottom: 15,
+    padding: 10,
+    backgroundColor: '#f1faee',
+    borderRadius: 12,
+  },
+  recordText: {
+    fontSize: 16,
+    color: '#023047',
+    fontWeight: 'bold',
+  },
+  recordTime: {
+    fontSize: 12,
+    color: '#023047',
+    marginTop: 4,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#023047',
+    textAlign: 'center',
+    marginTop: 10,
   },
 });
 

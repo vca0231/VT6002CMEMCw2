@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, Platform, Image, KeyboardAvoidingView } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '@env';
@@ -19,9 +19,9 @@ const LoginScreen = () => {
   const { signInWithIdToken } = useAuth();
   const API_URL = API_BASE_URL;
 
-  useEffect(() => {
-    checkBiometricSupport();
-  }, []);
+  /*  useEffect(() => {
+     checkBiometricSupport();
+   }, []); */
 
   const checkBiometricSupport = async () => {
     try {
@@ -63,34 +63,56 @@ const LoginScreen = () => {
     }
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Network response was not ok');
+      }
 
       const data = await response.json();
 
-      if (response.ok) {
-        await signInWithIdToken(data.token);
+      await signInWithIdToken(data.token);
 
-        // Save login information for biometric login
-        await AsyncStorage.setItem('userCredentials', JSON.stringify({
-          email: loginEmail,
-          password: loginPassword
-        }));
+      // Save login information for biometric login
+      await AsyncStorage.setItem('userCredentials', JSON.stringify({
+        email: loginEmail,
+        password: loginPassword
+      }));
 
-        if (data.isNewUser) {
-          showAlert('Registration Successful', 'Account created and logged in!');
-        } else {
-          showAlert('Login Successful', `Welcome, ${loginEmail}!`);
-        }
-      } else {
-        showAlert('Login Failed', data.message || 'Invalid email or password.');
+      // Store user ID for data management
+      if (data.uid) {
+        await AsyncStorage.setItem('userId', data.uid);
+        await AsyncStorage.setItem('loginResponse', JSON.stringify(data));
       }
-    } catch (error) {
+
+      if (data.isNewUser) {
+        showAlert('Registration Successful', 'Account created and logged in!');
+      } else {
+        showAlert('Login Successful', `Welcome, ${loginEmail}!`);
+      }
+    } catch (error: any) {
       console.error('Login/Registration Error:', error);
-      showAlert('Error', 'Something went wrong. Please try again later.');
+      if (error.name === 'AbortError') {
+        showAlert('Error', 'Request timed out. Please check your internet connection and try again.');
+      } else if (error.message?.includes('Network request failed')) {
+        showAlert('Error', 'Network error. Please check your internet connection and try again.');
+      } else {
+        showAlert('Error', error.message || 'Something went wrong. Please try again later.');
+      }
     }
   };
 
@@ -104,34 +126,50 @@ const LoginScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
+      {/* Background illustration */}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80' }}
+        style={styles.backgroundImage}
+        blurRadius={2}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <TouchableOpacity style={styles.button} onPress={() => handleLogin()}>
-        <Text style={styles.buttonText}>Login / Register</Text>
-      </TouchableOpacity>
+      <KeyboardAvoidingView behavior="padding" style={styles.innerContainer}>
+        {/* Page illustration */}
+        <Image
+          source={{ uri: 'https://cdn-icons-png.flaticon.com/512/135/135620.png' }}
+          style={styles.illustration}
+        />
+        <View style={styles.card}>
+          <Text style={styles.title}>Welcome back! </Text>
+          <Text style={styles.subtitle}>Start your healthy eating journey</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          <TouchableOpacity style={styles.button} onPress={() => handleLogin()}>
+            <Text style={styles.buttonText}>Login / Register</Text>
+          </TouchableOpacity>
 
-      {biometricAvailable && (
-        <TouchableOpacity
-          style={[styles.button, styles.biometricButton]}
-          onPress={handleBiometricLogin}
-        >
-          <Text style={styles.buttonText}>Login with Biometrics</Text>
-        </TouchableOpacity>
-      )}
+{/*           {biometricAvailable && (
+            <TouchableOpacity
+              style={[styles.button, styles.biometricButton]}
+              onPress={handleBiometricLogin}
+            >
+              <Text style={styles.buttonText}>Login with Biometrics</Text>
+            </TouchableOpacity>
+          )} */}
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 };
@@ -139,43 +177,78 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#caf0f8',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 16
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    opacity: 0.3,
+  },
+  innerContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  illustration: {
+    width: 100,
+    height: 100,
+    marginBottom: 20,
+    borderRadius: 50,
+    backgroundColor: '#fff',
+    alignSelf: 'center',
+  },
+  card: {
+    width: 320,
+    padding: 30,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    alignItems: 'center',
+    shadowColor: '#90e0ef',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
   title: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: 'bold',
+    color: '#219ebc',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#023047',
     marginBottom: 24,
-    color: '#333'
   },
   input: {
-    width: '80%',
-    height: 50,
-    borderColor: '#ccc',
+    width: '100%',
+    height: 48,
+    borderColor: '#8ecae6',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingHorizontal: 16,
     marginBottom: 16,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff'
+    backgroundColor: '#f1faee',
+    fontSize: 16,
+    color: '#023047',
   },
   button: {
-    width: '80%',
-    height: 50,
-    backgroundColor: '#007BFF',
+    width: '100%',
+    height: 48,
+    backgroundColor: '#219ebc',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
-    marginBottom: 12
-  },
-  biometricButton: {
-    backgroundColor: '#28a745'
+    marginTop: 8,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
   },
 });
 

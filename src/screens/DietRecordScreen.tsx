@@ -12,7 +12,7 @@ const DietRecordScreen = () => {
   const [calories, setCalories] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(true);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [mealType, setMealType] = useState('breakfast');
   const [image, setImage] = useState<string | null>(null);
@@ -33,9 +33,14 @@ const DietRecordScreen = () => {
     }
   };
 
+  const handleResetFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+  };
+
   useEffect(() => {
     fetchDietRecords();
-  }, [user]);
+  }, [user, startDate, endDate]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -121,114 +126,130 @@ const DietRecordScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Record your diet</Text>
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80' }}
+        style={styles.backgroundImage}
+        blurRadius={2}
+      />
+      <View style={styles.contentContainer}>
+        <Text style={styles.title}>Record your diet</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Food name:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter food name"
-          value={foodName}
-          onChangeText={setFoodName}
-        />
-      </View>
+        <View style={styles.card}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Food name:</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter food name"
+              value={foodName}
+              onChangeText={setFoodName}
+            />
+          </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Calories (kcal):</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter calories"
-          keyboardType="numeric"
-          value={calories}
-          onChangeText={setCalories}
-        />
-      </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Calories (kcal):</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter calories"
+              keyboardType="numeric"
+              value={calories}
+              onChangeText={setCalories}
+            />
+          </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Meal type:</Text>
-        <View style={styles.mealTypeContainer}>
-          {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[styles.mealTypeButton, mealType === type && styles.selectedMealTypeButton]}
-              onPress={() => setMealType(type)}
-            >
-              <Text style={[styles.mealTypeButtonText, mealType === type && styles.selectedMealTypeButtonText]}>{type}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.imagePickerContainer}>
-        <Text style={styles.label}>Food photos:</Text>
-        <View style={styles.imageButtons}>
-          <Button title="Pick from album" onPress={pickImage} />
-          <View style={{ width: 10 }} />
-          <Button title="Take Photo" onPress={takePhoto} />
-        </View>
-        {image && <Image source={{ uri: image }} style={styles.foodImage} />}
-      </View>
-
-      <Button title="Record Diet" onPress={handleRecordDiet} />
-
-      {/* Here you can add a display area for historical diet records */}
-
-      <View style={styles.historyContainer}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <TouchableOpacity onPress={() => setShowStartPicker(true)} style={[styles.input, { flex: 1, marginRight: 5, justifyContent: 'center' }]}>
-            <Text>{startDate ? startDate.toLocaleDateString() : 'Start Date'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowEndPicker(true)} style={[styles.input, { flex: 1, marginLeft: 5, justifyContent: 'center' }]}>
-            <Text>{endDate ? endDate.toLocaleDateString() : 'End Date'}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={fetchDietRecords} style={styles.filterButton}>
-            <Text style={styles.filterButtonText}>FILTER</Text>
-          </TouchableOpacity>
-        </View>
-        {showStartPicker && (
-          <DateTimePicker
-            value={startDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={(_, date) => {
-              setShowStartPicker(false);
-              if (date) setStartDate(date);
-            }}
-          />
-        )}
-        {showEndPicker && (
-          <DateTimePicker
-            value={endDate || new Date()}
-            mode="date"
-            display="default"
-            onChange={(_, date) => {
-              setShowEndPicker(false);
-              if (date) setEndDate(date);
-            }}
-          />
-        )}
-        <Text style={styles.subtitle}>Historical diet records</Text>
-        {loading ? (
-          <ActivityIndicator size="large" color="#007BFF" style={{ marginVertical: 20 }} />
-        ) : dietRecords.length === 0 ? (
-          <Text>No history records yet. </Text>
-        ) : (
-          dietRecords.map(record => (
-            <View key={record.id} style={{ marginBottom: 10 }}>
-              <Text>{record.foodName} - {record.calories} kcal - {record.mealType}</Text>
-              <Text style={{ color: '#888', fontSize: 12 }}>{new Date(record.createdAt).toLocaleString()}</Text>
-              {record.imageUrl ? (
-                <Image
-                  source={{ uri: record.imageUrl }}
-                  style={{ width: 120, height: 80, borderRadius: 8, marginTop: 4 }}
-                  resizeMode="cover"
-                />
-              ) : null}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Meal type:</Text>
+            <View style={styles.mealTypeContainer}>
+              {['Breakfast', 'Lunch', 'Dinner', 'Snack'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.mealTypeButton, mealType === type && styles.selectedMealTypeButton]}
+                  onPress={() => setMealType(type)}
+                >
+                  <Text style={[styles.mealTypeButtonText, mealType === type && styles.selectedMealTypeButtonText]}>{type}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          ))
-        )}
-      </View>
+          </View>
 
+          <View style={styles.imagePickerContainer}>
+            <Text style={styles.label}>Food photos:</Text>
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity style={styles.actionButton} onPress={pickImage}>
+                <Text style={styles.actionButtonText}>Pick from album</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton} onPress={takePhoto}>
+                <Text style={styles.actionButtonText}>Take Photo</Text>
+              </TouchableOpacity>
+            </View>
+            {image && <Image source={{ uri: image }} style={styles.foodImage} />}
+          </View>
+
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity style={[styles.actionButton, { flex: 1 }]} onPress={handleRecordDiet}>
+              <Text style={styles.actionButtonText}>Record Diet</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <TouchableOpacity onPress={() => setShowStartPicker(true)} style={[styles.input, { flex: 2, marginRight: 3, justifyContent: 'center' }]}>
+              <Text>{startDate ? startDate.toLocaleDateString() : 'Start Date'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowEndPicker(true)} style={[styles.input, { flex: 2, marginLeft: 3, justifyContent: 'center' }]}>
+              <Text>{endDate ? endDate.toLocaleDateString() : 'End Date'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={fetchDietRecords} style={[styles.filterButton, { flex: 1, marginLeft: 5, paddingHorizontal: 0 }]}>
+              <Text style={styles.filterButtonText}>FILTER</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleResetFilter} style={[styles.filterButton, { flex: 1, backgroundColor: '#aaa', marginLeft: 5, paddingHorizontal: 0 }]}>
+              <Text style={styles.filterButtonText}>RESET</Text>
+            </TouchableOpacity>
+          </View>
+          {showStartPicker && (
+            <DateTimePicker
+              value={startDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={(_, date) => {
+                setShowStartPicker(false);
+                if (date) setStartDate(date);
+              }}
+            />
+          )}
+          {showEndPicker && (
+            <DateTimePicker
+              value={endDate || new Date()}
+              mode="date"
+              display="default"
+              onChange={(_, date) => {
+                setShowEndPicker(false);
+                if (date) setEndDate(date);
+              }}
+            />
+          )}
+          <Text style={styles.subtitle}>Historical diet records</Text>
+          {loading ? (
+            <ActivityIndicator size="large" color="#219ebc" style={{ marginVertical: 20 }} />
+          ) : dietRecords.length === 0 ? (
+            <Text style={styles.infoText}>No history records yet. </Text>
+          ) : (
+            dietRecords.map(record => (
+              <View key={record.id} style={styles.recordItem}>
+                <Text style={styles.recordText}>{record.foodName} - {record.calories} kcal - {record.mealType}</Text>
+                <Text style={styles.recordTime}>{new Date(record.createdAt).toLocaleString()}</Text>
+                {record.imageUrl ? (
+                  <Image
+                    source={{ uri: record.imageUrl }}
+                    style={styles.recordImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
+              </View>
+            ))
+          )}
+        </View>
+      </View>
     </ScrollView>
   );
 };
@@ -236,22 +257,42 @@ const DietRecordScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#caf0f8',
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    opacity: 0.3,
+  },
+  contentContainer: {
+    flex: 1,
     padding: 20,
-    backgroundColor: '#f8f8f8',
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginTop: 40,
     textAlign: 'center',
-    color: '#333',
+    color: '#219ebc',
   },
   subtitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 10,
-    color: '#555',
+    color: '#023047',
+  },
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
+    shadowColor: '#90e0ef',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
   inputGroup: {
     marginBottom: 15,
@@ -259,15 +300,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 5,
-    color: '#666',
+    color: '#023047',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#8ecae6',
     padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
+    borderRadius: 12,
+    backgroundColor: '#f1faee',
     fontSize: 16,
+    color: '#023047',
   },
   mealTypeContainer: {
     flexDirection: 'row',
@@ -281,10 +323,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
   },
   selectedMealTypeButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#219ebc',
   },
   mealTypeButtonText: {
-    color: '#333',
+    color: '#023047',
     fontWeight: 'bold',
   },
   selectedMealTypeButtonText: {
@@ -293,40 +335,76 @@ const styles = StyleSheet.create({
   imagePickerContainer: {
     marginBottom: 20,
   },
-  imageButtons: {
+  actionButtonsRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     marginBottom: 10,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#219ebc',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   foodImage: {
     width: '100%',
     height: 200,
-    borderRadius: 10,
+    borderRadius: 12,
     marginTop: 10,
     resizeMode: 'cover',
   },
-  historyContainer: {
-    marginTop: 30,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingTop: 20,
-  },
-
   filterButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#219ebc',
     paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 5,
+    paddingHorizontal: 0,
+    borderRadius: 12,
     marginLeft: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 40,
+    height: 35,
+    minWidth: 29,
   },
   filterButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     letterSpacing: 1,
-    fontSize: 15,
+    fontSize: 13,
+  },
+  recordItem: {
+    marginBottom: 15,
+    padding: 10,
+    backgroundColor: '#f1faee',
+    borderRadius: 12,
+  },
+  recordText: {
+    fontSize: 16,
+    color: '#023047',
+    fontWeight: 'bold',
+  },
+  recordTime: {
+    fontSize: 12,
+    color: '#023047',
+    marginTop: 4,
+  },
+  recordImage: {
+    width: 120,
+    height: 80,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#023047',
+    textAlign: 'center',
+    marginTop: 10,
   },
 });
 

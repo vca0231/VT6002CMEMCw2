@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, RefreshControl, ScrollView, Image } from 'react-native';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ShowModal from './ShowModal';
@@ -100,34 +100,50 @@ const HomeScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>Loading to-do items...</Text>
+        <Image
+          source={{ uri: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=800&q=80' }}
+          style={styles.backgroundImage}
+          blurRadius={2}
+        />
+        <View style={styles.loadingContent}>
+          <ActivityIndicator size="large" color="#219ebc" />
+          <Text style={styles.loadingText}>Loading to-do items...</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My To-Do List</Text>
-      <FlatList
-        data={data}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id} // Use item.id as key
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        ListEmptyComponent={<Text style={styles.emptyListText}>No To-Do List. Click the button below to add it! </Text>}
-        style={styles.flatList}
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=800&q=80' }}
+        style={styles.backgroundImage}
+        blurRadius={2}
       />
-      <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
-        <Text style={styles.buttonText}>Add To-Do List</Text>
-      </TouchableOpacity>
-      <ShowModal
-        visible={modalVisible}
-        setVisible={setModalVisible}
-        onSubmit={(task: Omit<Task, 'id' | 'createdAt' | 'comments' | 'commentCount'>) => {
-          handleAddTask(task);
-          setModalVisible(false);
-        }}
-      />
+      <View style={styles.contentContainer}>
+        <Text style={styles.header}>Home</Text>
+        <View style={styles.card}>
+          <FlatList
+            data={data}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+            ListEmptyComponent={<Text style={styles.emptyListText}>No To-Do List. Click the button below to add it! </Text>}
+            style={styles.flatList}
+          />
+          <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
+            <Text style={styles.buttonText}>Add To-Do List</Text>
+          </TouchableOpacity>
+        </View>
+        <ShowModal
+          visible={modalVisible}
+          setVisible={setModalVisible}
+          onSubmit={(task: Omit<Task, 'id' | 'createdAt' | 'comments' | 'commentCount'>) => {
+            handleAddTask(task);
+            setModalVisible(false);
+          }}
+        />
+      </View>
     </View>
   );
 };
@@ -135,65 +151,86 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 15, // Adjusted padding for cleaner look
-    backgroundColor: '#eef2f7', // Lighter background
+    backgroundColor: '#caf0f8',
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    opacity: 0.3,
+  },
+  contentContainer: {
+    flex: 1,
+    padding: 15,
   },
   loadingContainer: {
     flex: 1,
+    backgroundColor: '#caf0f8',
+  },
+  loadingContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#eef2f7',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: '#023047',
   },
   header: {
-    fontSize: 26, // Slightly smaller
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 20, // More spacing
+    marginTop: 40,
     textAlign: 'center',
-    color: '#333',
-    textShadowColor: 'rgba(0, 0, 0, 0.1)', // Subtle shadow
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    color: '#219ebc',
+  },
+  card: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
+    shadowColor: '#90e0ef',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
   itemContainer: {
-    padding: 15, // Increased padding
-    marginVertical: 8, // More vertical spacing
-    backgroundColor: '#fff',
-    borderRadius: 12, // More rounded corners
+    padding: 15,
+    marginVertical: 8,
+    backgroundColor: '#f1faee',
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 }, // More pronounced shadow
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
     shadowRadius: 5,
-    elevation: 4, // Android shadow
-    borderLeftWidth: 5, // A color bar on the left
-    borderLeftColor: '#4CAF50', // Green accent
+    elevation: 4,
+    borderLeftWidth: 5,
+    borderLeftColor: '#219ebc',
   },
   itemTitle: {
-    fontSize: 19, // Slightly larger
+    fontSize: 19,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#023047',
     marginBottom: 5,
   },
   description: {
-    fontSize: 15, // Slightly larger
+    fontSize: 15,
     marginVertical: 5,
-    color: '#555',
+    color: '#023047',
   },
   meta: {
-    fontSize: 13, // Slightly larger
-    color: '#777',
+    fontSize: 13,
+    color: '#023047',
     marginTop: 5,
   },
   addButton: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 14, // Taller button
-    borderRadius: 10, // More rounded
+    backgroundColor: '#219ebc',
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 20, // More spacing from list
+    marginTop: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -203,13 +240,13 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#ffffff',
     fontWeight: 'bold',
-    fontSize: 18, // Larger text
+    fontSize: 18,
   },
   emptyListText: {
     textAlign: 'center',
-    marginTop: 30, // More spacing
-    fontSize: 17, // Larger text
-    color: '#777',
+    marginTop: 30,
+    fontSize: 17,
+    color: '#023047',
     fontStyle: 'italic',
   },
   flatList: {

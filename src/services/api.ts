@@ -2,6 +2,8 @@ import { API_BASE_URL } from '@env';
 
 const API_URL = API_BASE_URL;
 
+console.log('API_BASE_URL:', API_URL);
+
 export const api = {
 
     getUserProfile: async (uid: string) => {
@@ -34,16 +36,23 @@ export const api = {
 
     // Get diet records (optional date filtering)
     getDietRecords: async (uid: string, startDate?: string, endDate?: string) => {
+        if (!uid) {
+            return { success: false, message: 'User ID is required' };
+        }
         try {
             let url = `${API_URL}/api/diet/records/${uid}`;
             if (startDate && endDate) {
                 url += `?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
             }
             const response = await fetch(url);
-            return response.json();
-        } catch (error) {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to get diet records');
+            }
+            return data;
+        } catch (error: any) {
             console.error('Error getting diet records:', error);
-            throw new Error('Failed to get diet records, please try again later.');
+            return { success: false, message: error.message || 'Failed to get diet records' };
         }
     },
 
@@ -59,16 +68,23 @@ export const api = {
 
     // Get exercise records (optional date filtering)
     getExerciseRecords: async (uid: string, startDate?: string, endDate?: string) => {
+        if (!uid) {
+            return { success: false, message: 'User ID is required' };
+        }
         try {
             let url = `${API_URL}/api/exercise/records/${uid}`;
             if (startDate && endDate) {
                 url += `?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
             }
             const response = await fetch(url);
-            return response.json();
-        } catch (error) {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to get exercise records');
+            }
+            return data;
+        } catch (error: any) {
             console.error('Error getting exercise records:', error);
-            throw new Error('Failed to get exercise records, please try again later.');
+            return { success: false, message: error.message || 'Failed to get exercise records' };
         }
     },
 
@@ -84,22 +100,18 @@ export const api = {
 
     // Get reminder 
     getNotifications: async (uid: string) => {
+        if (!uid) {
+            return { success: false, message: 'User ID is required' };
+        }
         try {
             const response = await fetch(`${API_URL}/api/notifications/${uid}`);
-            // 檢查回應是否成功，或是否有內容
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('API Error:', response.status, errorText);
                 return { success: false, message: errorText || 'Failed to fetch notifications' };
             }
-            const text = await response.text();
-            try {
-                return JSON.parse(text);
-            } catch (e) {
-                // 如果解析失敗，說明伺服器返回的不是合法的 JSON
-                console.error("Error parsing JSON from getNotifications:", e, "Response text:", text);
-                return { success: false, message: text || 'Invalid JSON response from server' };
-            }
+            const data = await response.json();
+            return data;
         } catch (error) {
             console.error('Network or unknown error in getNotifications:', error);
             return { success: false, message: 'Unable to connect to the server' };
@@ -116,12 +128,24 @@ export const api = {
 
     //Data synchronization 
     syncData: async (uid: string) => {
-        const response = await fetch(`${API_URL}/api/data/sync`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid, lastSyncTime: new Date().toISOString() })
-        });
-        return response.json();
+        if (!uid) {
+            return { success: false, message: 'User ID is required' };
+        }
+        try {
+            const response = await fetch(`${API_URL}/api/data/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid, lastSyncTime: new Date().toISOString() })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Sync failed');
+            }
+            return data;
+        } catch (error: any) {
+            console.error('Sync error:', error);
+            return { success: false, message: error.message || 'Failed to sync data' };
+        }
     },
 
     // Get statistics 

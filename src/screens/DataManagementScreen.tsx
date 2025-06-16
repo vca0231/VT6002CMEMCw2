@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, Button, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Switch, Button, Alert, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { api } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -20,6 +20,16 @@ const DataManagementScreen = () => {
           const lastSync = await AsyncStorage.getItem('lastSyncTime');
           if (lastSync) {
             setLastSyncTime(new Date(lastSync).toLocaleString());
+          }
+        } else {
+          // If no user ID found, try to get it from the login response
+          const loginResponse = await AsyncStorage.getItem('loginResponse');
+          if (loginResponse) {
+            const { uid } = JSON.parse(loginResponse);
+            if (uid) {
+              await AsyncStorage.setItem('userId', uid);
+              setUserId(uid);
+            }
           }
         }
       } catch (error) {
@@ -118,7 +128,7 @@ const DataManagementScreen = () => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Cloud synchronization</Text>
-        <View style={styles.row}>
+        <View style={styles.securityRow}>
           <Text style={styles.label}>Enable automatic cloud synchronization:</Text>
           <Switch
             onValueChange={handleToggleCloudSync}
@@ -132,16 +142,17 @@ const DataManagementScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Manual operation</Text>
         <View style={styles.buttonGroup}>
-          <Button
-            title="Back up data now"
-            onPress={handleManualBackup}
-            disabled={isLoading} />
+          <View style={styles.actionButtonsRow}>
+            <TouchableOpacity style={[styles.actionButton, { flex: 1 }]} onPress={handleManualBackup} disabled={isLoading} >
+              <Text style={styles.actionButtonText}>Back up data now</Text>
+            </TouchableOpacity>
+          </View>
           <View style={{ height: 10 }} />
-          <Button
-            title="Restore data from the cloud"
-            onPress={handleRestoreData}
-            color="#FF9800"
-            disabled={isLoading} />
+            <View style={styles.actionButtonsRow}>
+            <TouchableOpacity style={[styles.actionButton, { flex: 1 }]} onPress={handleRestoreData} disabled={isLoading} >
+              <Text style={styles.actionButtonText}>Restore data from the cloud</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -203,6 +214,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  securityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 10,
+  },
   label: {
     fontSize: 16,
     color: '#666',
@@ -229,6 +248,25 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#333',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#2196F3',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });
 

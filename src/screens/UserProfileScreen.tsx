@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button, ScrollView, Alert, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Button, ScrollView, Alert, Switch, ActivityIndicator, TouchableOpacity, } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import ReactNativeBiometrics from 'react-native-biometrics';
@@ -36,7 +36,7 @@ const UserProfileScreen = () => {
           setExerciseGoal(res.exerciseGoal ? String(res.exerciseGoal) : '');
         }
       } catch (e) {
-       Alert.alert('Error', 'Unable to obtain personal information, please try again later');
+        Alert.alert('Error', 'Unable to obtain personal information, please try again later');
       }
       setLoading(false);
       setHasFetched(true);
@@ -70,12 +70,12 @@ const UserProfileScreen = () => {
       }
       return true;
     } catch (error) {
-      console.error('Biometric check error:', error);
+     // console.error('Biometric check error:', error);
       return false;
     }
   };
 
-  const handleBiometricToggle = async () => {
+/*   const handleBiometricToggle = async () => {
     const isSupported = await checkBiometricSupport();
     if (!isSupported) {
       toggleBiometric(false);
@@ -102,10 +102,10 @@ const UserProfileScreen = () => {
       Alert.alert('Success', 'Biometric authentication disabled');
     }
   };
-
+ */
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Personal Information and Health Goals</Text>
+      <Text style={styles.title}>Personal Information and{'\n'} Health Goals</Text>
       <>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
@@ -178,10 +178,10 @@ const UserProfileScreen = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security Settings</Text>
-          <View style={styles.row}>
+          <View style={styles.securityRow}>
             <Text style={styles.label}>Enable biometric authentication (fingerprint/face):</Text>
             <Switch
-              onValueChange={handleBiometricToggle}
+         /*      onValueChange={handleBiometricToggle} */
               value={isBiometricEnabled}
             />
           </View>
@@ -190,7 +190,11 @@ const UserProfileScreen = () => {
           </Text>
         </View>
 
-        <Button title="Save the Personal Data" onPress={handleSaveProfile} />
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity style={[styles.actionButton, { flex: 1 }]} onPress={handleSaveProfile}>
+            <Text style={styles.actionButtonText}>Save the Personal Data</Text>
+          </TouchableOpacity>
+        </View>
       </>
     </ScrollView>
   );
@@ -251,11 +255,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  securityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 10,
+  },
   infoText: {
     fontSize: 14,
     color: '#888',
     lineHeight: 20,
     marginTop: 5,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#2196F3',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });
 

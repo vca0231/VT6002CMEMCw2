@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, Button, Alert, Modal, TextInput, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, Button, Alert, Modal, TextInput, Platform, ActivityIndicator, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { LineChart, BarChart } from "react-native-chart-kit";
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -54,7 +54,9 @@ const chartConfig = {
   labelColor: (opacity = 1) => `rgba(0,0,0,${opacity})`,
   strokeWidth: 2,
   barPercentage: 0.7,
-  useShadowColorFromDataset: false
+  useShadowColorFromDataset: false,
+  decimalPlaces: 0,
+  paddingLeft: 30,
 };
 
 const getWeekDates = () => {
@@ -86,6 +88,7 @@ const StatisticsScreen = () => {
   const [goalInput, setGoalInput] = useState({ calorieGoal: '', exerciseGoal: '', weightGoal: '' });
   const screenWidth = Dimensions.get("window").width;
   const [recommendWeeks, setRecommendWeeks] = useState('4');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Get the start and end dates of this week
   const weekDates = getWeekDates();
@@ -95,31 +98,38 @@ const StatisticsScreen = () => {
   weekEnd.setHours(23, 59, 59, 999);
 
   // Pull data
-  useEffect(() => {
+  const fetchAll = async () => {
     if (!user) return;
-    const fetchAll = async () => {
-      setLoading(true);
-      // Get the goal
-      const profile = await api.getUserProfile(user.uid);
-      setGoal({
-        calorieGoal: profile.calorieGoal || 2000,
-        exerciseGoal: profile.exerciseGoal || 45,
-        weightGoal: profile.weightGoal || 60,
-        currentWeight: profile.weight || 65,
-        gender: profile.gender || 'male',
-        age: profile.age || 25,
-        height: profile.height || 170
-      });
-      // Get diet
-      const dietRes = await api.getDietRecords(user.uid, weekStart.toISOString(), weekEnd.toISOString());
-      setDietRecords(dietRes.data || []);
-      // Get motion
-      const exerciseRes = await api.getExerciseRecords(user.uid, weekStart.toISOString(), weekEnd.toISOString());
-      setExerciseRecords(exerciseRes.data || []);
-      setLoading(false);
-    };
+    setLoading(true);
+    // Get the goal
+    const profile = await api.getUserProfile(user.uid);
+    setGoal({
+      calorieGoal: profile.calorieGoal || 2000,
+      exerciseGoal: profile.exerciseGoal || 45,
+      weightGoal: profile.weightGoal || 60,
+      currentWeight: profile.weight || 65,
+      gender: profile.gender || 'male',
+      age: profile.age || 25,
+      height: profile.height || 170
+    });
+    // Get diet
+    const dietRes = await api.getDietRecords(user.uid, weekStart.toISOString(), weekEnd.toISOString());
+    setDietRecords(dietRes.data || []);
+    // Get motion
+    const exerciseRes = await api.getExerciseRecords(user.uid, weekStart.toISOString(), weekEnd.toISOString());
+    setExerciseRecords(exerciseRes.data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchAll();
   }, [user]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAll();
+    setRefreshing(false);
+  };
 
   // Count calories and exercise time for each day of this week
   const weekLabels = weekDates.map(d => `${d.getMonth() + 1}/${d.getDate()}`);
@@ -190,98 +200,121 @@ const StatisticsScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Health Data Statistics & Analysis</Text>
+    <ScrollView style={styles.container} refreshControl={
+      <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+    }
+    >
+      <Image
+        source={{ uri: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80' }}
+        style={styles.backgroundImage}
+        blurRadius={2}
+      />
+      <View style={styles.contentContainer}>
+        <Text style={styles.title}>Health Data Statistics & Analysis</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Dietary Trends (This Week)</Text>
-        <BarChart
-          data={{
-            labels: weekLabels,
-            datasets: [{ data: dietData }]
-          }}
-          width={screenWidth - 60}
-          height={220}
-          yAxisSuffix="kcal"
-          chartConfig={chartConfig}
-          fromZero yAxisLabel={''} />
-        <Text style={styles.infoText}>Average: {avgCalorie.toFixed(0)} kcal / day</Text>
-        <Text style={styles.infoText}>Goal: {goal.calorieGoal} kcal</Text>
-        <Text style={styles.infoText}>Number of days to achieve goal: {calorieGoalDays} / 7</Text>
-      </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Dietary Trends (This Week)</Text>
+          <BarChart
+            data={{
+              labels: weekLabels,
+              datasets: [{ data: dietData }]
+            }}
+            width={screenWidth - 80}
+            height={220}
+            yAxisSuffix="kcal"
+            chartConfig={chartConfig}
+            fromZero yAxisLabel={''} />
+          <Text style={styles.infoText}>Average: {avgCalorie.toFixed(0)} kcal / day</Text>
+          <Text style={styles.infoText}>Goal (per day): {goal.calorieGoal} kcal</Text>
+          <Text style={styles.infoText}>Weekly total goal: {(goal.calorieGoal * 7).toFixed(0)} kcal</Text>
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Exercise Trends (This Week)</Text>
-        <BarChart
-          data={{
-            labels: weekLabels,
-            datasets: [{ data: exerciseData }]
-          }}
-          width={screenWidth - 60}
-          height={220}
-          yAxisSuffix="min"
-          chartConfig={chartConfig}
-          fromZero yAxisLabel={''} />
-        <Text style={styles.infoText}>Average: {avgExercise.toFixed(0)} min / day</Text>
-        <Text style={styles.infoText}>Goal: {goal.exerciseGoal} min</Text>
-        <Text style={styles.infoText}>Number of days to achieve the standard: {exerciseGoalDays} / 7</Text>
-      </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Exercise Trends (This Week)</Text>
+          <BarChart
+            data={{
+              labels: weekLabels,
+              datasets: [{ data: exerciseData }]
+            }}
+            width={screenWidth - 80}
+            height={220}
+            yAxisSuffix="min"
+            chartConfig={chartConfig}
+            fromZero yAxisLabel={''} />
+          <Text style={styles.infoText}>Average: {avgExercise.toFixed(0)} min / day</Text>
+          <Text style={styles.infoText}>Goal: {goal.exerciseGoal} min</Text>
+          <Text style={styles.infoText}>Number of days to achieve the standard: {exerciseGoalDays} / 7</Text>
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Weight Goal</Text>
-        <Text style={styles.infoText}>Current: {goal.currentWeight} kg</Text>
-        <Text style={styles.infoText}>Goal: {goal.weightGoal} kg</Text>
-        <Text style={styles.infoText}>Gap: {(goal.currentWeight - goal.weightGoal).toFixed(1)} kg</Text>
-      </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Weight Goal</Text>
+          <Text style={styles.infoText}>Current: {goal.currentWeight} kg</Text>
+          <Text style={styles.infoText}>Goal: {goal.weightGoal} kg</Text>
+          <Text style={styles.infoText}>Gap: {(goal.currentWeight - goal.weightGoal).toFixed(1)} kg</Text>
+        </View>
 
-      <View style={styles.section}>
-        <Button title="Set/Modify Target" onPress={() => setShowGoalModal(true)} />
-      </View>
+        <View style={styles.card}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setShowGoalModal(true)}>
+            <Text style={styles.actionButtonText}>Set/Modify Target</Text>
+          </TouchableOpacity>
+        </View>
 
-      <Modal visible={showGoalModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.sectionTitle}>Set/Modify Target</Text>
-            <Text style={styles.inputLabel}>Weight Goal (kg)</Text>
-            <TextInput
-              style={[styles.input, styles.inputLarge]}
-              placeholder={`Weight Goal (current: ${goal.weightGoal})`}
-              keyboardType="numeric"
-              value={goalInput.weightGoal}
-              onChangeText={v => setGoalInput({ ...goalInput, weightGoal: v })}
-            />
-            <Text style={styles.inputLabel}>Target Period (weeks)</Text>
-            <TextInput
-              style={[styles.input, styles.inputLarge]}
-              placeholder="Target period (weeks) such as 4"
-              keyboardType="numeric"
-              value={recommendWeeks}
-              onChangeText={setRecommendWeeks}
-            />
-            <Button title="One-click recommendation goal" onPress={handleRecommendGoal} />
-            <Text style={styles.inputLabel}>Recommended Calorie Goal (kcal/day)</Text>
-            <TextInput
-              style={[styles.input, styles.inputLarge]}
-              placeholder={`Calorie Goal (current: ${goal.calorieGoal})`}
-              keyboardType="numeric"
-              value={goalInput.calorieGoal}
-              onChangeText={v => setGoalInput({ ...goalInput, calorieGoal: v })}
-            />
-            <Text style={styles.inputLabel}>Recommended Exercise Goal (min/day)</Text>
-            <TextInput
-              style={[styles.input, styles.inputLarge]}
-              placeholder={`Exercise Goal (current: ${goal.exerciseGoal})`}
-              keyboardType="numeric"
-              value={goalInput.exerciseGoal}
-              onChangeText={v => setGoalInput({ ...goalInput, exerciseGoal: v })}
-            />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
-              <Button title="Save" onPress={handleSaveGoal} />
-              <Button title="Cancel" color="#888" onPress={() => setShowGoalModal(false)} />
+        <Modal visible={showGoalModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.sectionTitle}>Set/Modify Target</Text>
+              <Text style={styles.inputLabel}>Weight Goal (kg)</Text>
+              <TextInput
+                style={[styles.input, styles.inputLarge]}
+                placeholder={`Weight Goal (current: ${goal.weightGoal})`}
+                keyboardType="numeric"
+                value={goalInput.weightGoal}
+                onChangeText={v => setGoalInput({ ...goalInput, weightGoal: v })}
+              />
+              <Text style={styles.inputLabel}>Target Period (weeks)</Text>
+              <TextInput
+                style={[styles.input, styles.inputLarge]}
+                placeholder="Target period (weeks) such as 4"
+                keyboardType="numeric"
+                value={recommendWeeks}
+                onChangeText={setRecommendWeeks}
+                placeholderTextColor="#bdb9b9"
+              />
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity style={styles.actionButton} onPress={handleRecommendGoal}>
+                  <Text style={styles.actionButtonText}>One-click recommendation goal</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.inputLabel}>Recommended Daily Calorie Intake (kcal)</Text>
+              <TextInput
+                style={[styles.input, styles.inputLarge]}
+                placeholder={`Calorie Goal (current: ${goal.calorieGoal})`}
+                keyboardType="numeric"
+                value={goalInput.calorieGoal}
+                onChangeText={v => setGoalInput({ ...goalInput, calorieGoal: v })}
+                placeholderTextColor="#bdb9b9"
+              />
+              <Text style={styles.inputLabel}>Recommended Exercise Goal (min/day)</Text>
+              <TextInput
+                style={[styles.input, styles.inputLarge]}
+                placeholder={`Exercise Goal (current: ${goal.exerciseGoal})`}
+                keyboardType="numeric"
+                value={goalInput.exerciseGoal}
+                onChangeText={v => setGoalInput({ ...goalInput, exerciseGoal: v })}
+                placeholderTextColor="#bdb9b9"
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleSaveGoal}>
+                  <Text style={styles.modalButtonText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowGoalModal(false)}>
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      </View>
     </ScrollView>
   );
 };
@@ -289,55 +322,62 @@ const StatisticsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#caf0f8',
+  },
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    opacity: 0.3,
+  },
+  contentContainer: {
+    flex: 1,
     padding: 20,
-    backgroundColor: '#f8f8f8',
-    ...(Platform.OS === 'web' && {
-      height: '100%'
-    })
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginTop: 40,
     textAlign: 'center',
-    color: '#333',
+    color: '#219ebc',
   },
-  section: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
+    shadowColor: '#90e0ef',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#444',
+    marginBottom: 15,
+    color: '#023047',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#8ecae6',
     paddingBottom: 5,
   },
   infoText: {
     fontSize: 15,
-    color: '#555',
+    color: '#023047',
     marginTop: 5,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 10,
-    borderRadius: 5,
-    backgroundColor: '#fff',
-    fontSize: 16,
-    marginBottom: 10,
+  actionButton: {
+    width: '100%',
+    backgroundColor: '#219ebc',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
   },
-  inputLarge: { height: 48 },
-  inputLabel: { fontSize: 15, color: '#444', marginBottom: 4, marginTop: 10, fontWeight: 'bold' },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -346,10 +386,64 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.98)',
+    borderRadius: 24,
     padding: 20,
     alignItems: 'stretch',
+    shadowColor: '#90e0ef',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  inputLabel: {
+    fontSize: 15,
+    color: '#023047',
+    marginBottom: 4,
+    marginTop: 10,
+    fontWeight: 'bold',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#8ecae6',
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#f1faee',
+    fontSize: 16,
+    color: '#023047',
+    marginBottom: 10,
+  },
+  inputLarge: {
+    height: 48,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 10,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: '#219ebc',
+  },
+  cancelButton: {
+    backgroundColor: '#e63946',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

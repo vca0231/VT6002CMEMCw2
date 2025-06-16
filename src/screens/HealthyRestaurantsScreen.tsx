@@ -8,11 +8,12 @@ import {
     ActivityIndicator,
     Dimensions,
     Platform,
-    ScrollView
+    ScrollView,
+    Alert
 } from 'react-native';
-import Geolocation from '@react-native-community/geolocation';
 import { api } from '../services/api';
 import { GOOGLE_API_KEY } from '@env';
+import * as Location from 'expo-location';
 
 let NativeMapView: any = null;
 if (Platform.OS !== 'web') {
@@ -66,38 +67,45 @@ const HealthyRestaurantsScreen = () => {
         }
     };
 
-    const getCurrentLocation = () => {
-        Geolocation.getCurrentPosition(
-            async (position) => {
-                try {
-                    const { latitude, longitude } = position.coords;
-                    setRegion({
-                        latitude,
-                        longitude,
-                        latitudeDelta: 0.0922,
-                        longitudeDelta: 0.0421,
-                    });
-                    fetchLocationName(latitude, longitude);
+const getCurrentLocation = async () => {
+    let { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required!');
+        setLoading(false);
+        return;
+    }
+    let location = await Location.getCurrentPositionAsync({});
+    const { latitude, longitude } = location.coords;
+    setRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+    });
+    await fetchLocationName(latitude, longitude);
+    await refreshRestaurantsWithCoords(latitude, longitude);
+};
 
-                    const response = await api.getNearbyHealthyRestaurants(latitude, longitude);
-                    if (response.success) {
-                        setRestaurants(response.data);
-                    } else {
-                        setError('Failed to fetch restaurants');
-                    }
-                } catch (err) {
-                    setError('Error getting location');
-                } finally {
-                    setLoading(false);
-                }
-            },
-            (error) => {
-                setError('Error getting location');
-                setLoading(false);
-            },
-            { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+const refreshRestaurantsWithCoords = async (latitude: number, longitude: number) => {
+    setLoading(true);
+    try {
+        const response = await api.getNearbyHealthyRestaurants(
+            latitude,
+            longitude,
+            searchRadius
         );
-    };
+        if (response.success) {
+            setRestaurants(response.data);
+            setError(null);
+        } else {
+            setError('Failed to load restaurants');
+        }
+    } catch (err) {
+        setError('Failed to refresh restaurants');
+    } finally {
+        setLoading(false);
+    }
+};
 
     const refreshRestaurants = async () => {
         setLoading(true);

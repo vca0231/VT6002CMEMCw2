@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-       "config": {
+      "config": {
         "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
       },
       "infoPlist": {
@@ -26,7 +26,13 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_AND_GOOGLE_MAPS_API_KEY"
+        }
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.christse0717.Lab08"
     },
     "web": {
       "favicon": "./assets/favicon.png"
