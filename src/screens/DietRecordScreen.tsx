@@ -12,7 +12,7 @@ const DietRecordScreen = () => {
   const [calories, setCalories] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [showStartPicker, setShowStartPicker] = useState(true);
+  const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [mealType, setMealType] = useState('breakfast');
   const [image, setImage] = useState<string | null>(null);

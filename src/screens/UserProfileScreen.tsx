@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Button, ScrollView, Alert, Switch, ActivityIndicator, TouchableOpacity, } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Button, ScrollView, Alert, Switch, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import ReactNativeBiometrics from 'react-native-biometrics';
+import { Picker } from '@react-native-picker/picker';
 
 const rnBiometrics = new ReactNativeBiometrics();
 
 const UserProfileScreen = () => {
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
-  const [gender, setGender] = useState('');
+  const [gender, setGender] = useState('male');
   const [height, setHeight] = useState(''); // cm
   const [weight, setWeight] = useState(''); // kg
   const [calorieGoal, setCalorieGoal] = useState('');
@@ -17,7 +18,7 @@ const UserProfileScreen = () => {
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const { currentUser: user, isBiometricEnabled, toggleBiometric } = useAuth();
-
+  const [showGenderPicker, setShowGenderPicker] = useState(false);
 
   // Pull user information
   useEffect(() => {
@@ -29,7 +30,7 @@ const UserProfileScreen = () => {
         if (res && res.id) {
           setName(res.name || '');
           setAge(res.age ? String(res.age) : '');
-          setGender(res.gender || '');
+          setGender(res.gender || 'male');
           setHeight(res.height ? String(res.height) : '');
           setWeight(res.weight ? String(res.weight) : '');
           setCalorieGoal(res.calorieGoal ? String(res.calorieGoal) : '');
@@ -128,11 +129,30 @@ const UserProfileScreen = () => {
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Gender:</Text>
-            <TextInput
-              style={styles.input}
-              value={gender}
-              onChangeText={setGender}
-            />
+            <TouchableOpacity 
+              style={styles.pickerButton} 
+              onPress={() => setShowGenderPicker(!showGenderPicker)}
+            >
+              <Text style={styles.pickerButtonText}>
+                {gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : ''}
+              </Text>
+            </TouchableOpacity>
+            {showGenderPicker && (
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={gender}
+                  onValueChange={(itemValue) => {
+                    setGender(itemValue);
+                    setShowGenderPicker(false);
+                  }}
+                  style={styles.picker}
+                  itemStyle={styles.pickerItem}
+                >
+                  <Picker.Item label="Male" value="male" />
+                  <Picker.Item label="Female" value="female" />
+                </Picker>
+              </View>
+            )}
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Height (cm):</Text>
@@ -287,6 +307,43 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  pickerButton: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    padding: 12,
+    backgroundColor: '#fff',
+    marginBottom: 5,
+  },
+  pickerButtonText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  pickerContainer: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  picker: {
+    height: 120,
+    width: '100%',
+    marginTop: -15,
+  },
+  pickerItem: {
+    height: 150,
+    fontSize: 16,
   },
 });
 
