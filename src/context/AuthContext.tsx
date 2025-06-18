@@ -3,16 +3,18 @@ import { onAuthStateChanged, User, signOut, signInWithEmailAndPassword, createUs
 import { auth } from '../../server/firebase'; // Import the auth instance from your firebase.js
 import { ActivityIndicator, View, StyleSheet, Text, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 interface AuthContextType {
   currentUser: User | null;
   loadingAuth: boolean;
-/*   login: (email: string, password: string) => Promise<any>;
-  register: (email: string, password: string) => Promise<any>; */
+  /*   login: (email: string, password: string) => Promise<any>;
+    register: (email: string, password: string) => Promise<any>; */
   logout: () => Promise<void>;
   signInWithIdToken: (idToken: string) => Promise<any>;
   isBiometricEnabled: boolean;
   toggleBiometric: (enabled: boolean) => Promise<void>;
+  checkBiometricSupport: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,16 +29,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('onAuthStateChanged triggered. User:', user ? user.uid : 'null');
       setCurrentUser(user);
       setLoadingAuth(false);
-      if (user) {   
+      if (user) {
         // Optionally store user token/uid in AsyncStorage for quick access if needed elsewhere
         await AsyncStorage.setItem('userToken', await user.getIdToken());
         await AsyncStorage.setItem('userUid', user.uid);
-       // Check biometric settings
+        // Check biometric settings
         const biometricEnabled = await AsyncStorage.getItem('biometricEnabled');
         setIsBiometricEnabled(biometricEnabled === 'true');
       } else {
-        await AsyncStorage.removeItem('userToken');
-        await AsyncStorage.removeItem('userUid');
+        await AsyncStorage.multiRemove([
+          'userToken',
+          'userUid',
+          'loginResponse',
+          'userId',
+        ]);
+        console.log('Run the else, User logged out or no user found. Cleared AsyncStorage.');
         setIsBiometricEnabled(false);
       }
     });
@@ -76,13 +83,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const checkBiometricSupport = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      return compatible && enrolled;
+    } catch (error) {
+      console.error('Biometric support check error:', error);
+      return false;
+    }
+  };
+
   const toggleBiometric = async (enabled: boolean) => {
     try {
+      if (enabled) {
+        const isSupported = await checkBiometricSupport();
+        if (!isSupported) {
+          Alert.alert('error', 'Your device does not support Face ID or Face ID is not set up');
+          return;
+        }
+      }
       await AsyncStorage.setItem('biometricEnabled', String(enabled));
       setIsBiometricEnabled(enabled);
     } catch (error) {
       console.error('Error toggling biometric:', error);
-      Alert.alert('Error', 'Failed to update biometric settings');
+      Alert.alert('error', 'Failed to update Face ID settings');
     }
   };
 
@@ -90,13 +115,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Logout function called.');
     try {
       await signOut(auth);
-      // Clear all authentication related storage
-      await AsyncStorage.multiRemove([
-        'userToken',
-        'userUid',
-        'userCredentials',
-        'biometricEnabled'
-      ]);
+
+      // Only delete authentication-related keys, not userCredentials and biometricEnabled
+      const authKeys = ['userToken', 'userUid', 'loginResponse', 'userId'];
+      for (const key of authKeys) {
+        await AsyncStorage.removeItem(key);
+        console.log(`Deleted ${key}`);
+      }
+
+      // Verify that userCredentials is still there
+      const savedCredentials = await AsyncStorage.getItem('userCredentials');
+      console.log('Login information saved after logout:', savedCredentials);
+
       console.log('Firebase signOut successful and storage cleared.');
     } catch (error: any) {
       console.error("Logout error:", error);
@@ -108,19 +138,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
-       <Text style={styles.loadingText}>Verifying identity...</Text>
+        <Text style={styles.loadingText}>Verifying identity...</Text>
       </View>
     );
   }
 
   return (
-    <AuthContext.Provider value={{ 
-      currentUser, 
-      loadingAuth, 
-      logout, 
+    <AuthContext.Provider value={{
+      currentUser,
+      loadingAuth,
+      logout,
       signInWithIdToken,
       isBiometricEnabled,
-      toggleBiometric
+      toggleBiometric,
+      checkBiometricSupport
     }}>
       {children}
     </AuthContext.Provider>

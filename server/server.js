@@ -9,6 +9,7 @@ const admin = require('firebase-admin');
 const { setDoc } = require("firebase/firestore");
 const { Client } = require('@googlemaps/google-maps-services-js');
 const googleMapsClient = new Client({});
+const bcrypt = require('bcryptjs');
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_API_KEY;
 console.log('GOOGLE_PLACES_API_KEY:', `"${GOOGLE_PLACES_API_KEY}"`);
@@ -572,70 +573,56 @@ app.post('/login', async (req, res) => {
   }
 
   try {
-    // Try to log in first
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const customToken = await admin.auth().createCustomToken(userCredential.user.uid);
-      res.status(200).json({ success: true, token: customToken, uid: userCredential.user.uid });
-    } catch (loginError) {
-      // If login failed, check if the user does not exist
-      if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/invalid-credential') {
-        // Try to register a new user
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const customToken = await admin.auth().createCustomToken(userCredential.user.uid);
-
-          // Create a user profile
-          await setDoc(doc(db, 'users', userCredential.user.uid), {
-            email: email,
-            createdAt: new Date().toISOString(),
-            biometricEnabled: false
-          });
-
-          res.status(201).json({
-            success: true,
-            token: customToken,
-            uid: userCredential.user.uid,
-            isNewUser: true
-          });
-        } catch (registerError) {
-          console.error("Registration error:", registerError);
-          res.status(400).json({
-            success: false,
-            message: registerError.message || 'Registration failed'
-          });
-        }
-      } else {
-        // Other login errors 
-        console.error("Login error:", loginError);
-        res.status(401).json({
-          success: false,
-          message: loginError.message || 'Login failed'
-        });
+    // First query whether Firestore has this user
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('email', '==', email));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      // User exists, check password
+      const userDoc = snapshot.docs[0];
+      const userData = userDoc.data();
+      if (!userData.passwordHash) {
+        return res.status(401).json({ success: false, message: 'Password not set, please reset password.' });
       }
+      const isMatch = await bcrypt.compare(password, userData.passwordHash);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: 'Wrong password' });
+      }
+      // Password is correct, generate token
+      const userRecord = await admin.auth().getUserByEmail(email);
+      const customToken = await admin.auth().createCustomToken(userRecord.uid);
+      return res.status(200).json({
+        success: true,
+        token: customToken,
+        uid: userRecord.uid
+      });
+    } else {
+      // The user does not exist, create a new user
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
+      const userRecord = await admin.auth().createUser({
+        email: email,
+        password: password,
+        emailVerified: false
+      });
+      const customToken = await admin.auth().createCustomToken(userRecord.uid);
+      await setDoc(doc(db, 'users', userRecord.uid), {
+        email: email,
+        passwordHash: passwordHash,
+        createdAt: new Date().toISOString(), biometricEnabled: false
+      });
+      return res.status(201).json({
+        success: true,
+        token: customToken,
+        uid: userRecord.uid,
+        isNewUser: true
+      });
     }
   } catch (error) {
-    console.error("Authentication error:", error);
-    res.status(500).json({
-      success: false,
-      message: 'Authentication failed'
-    });
+    console.error('Login/Register error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Server error occurred' });
   }
 });
-
-// Register Endpoint
-app.post('/register', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const customToken = await admin.auth().createCustomToken(userCredential.user.uid);
-    res.status(201).json({ success: true, token: customToken, uid: userCredential.user.uid });
-  } catch (error) {
-    console.error("Registration error:", error);
-    res.status(400).json({ message: error.message });
-  }
-});
-
 // Add the following API endpoints in server.js
 
 // 1. User Profile API

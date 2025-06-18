@@ -186,15 +186,24 @@ export const api = {
 
     //Biometric related API 
     updateBiometricStatus: async (uid: string, biometricEnabled: boolean) => {
-        const response = await fetch(`${API_URL}/api/user/profile`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                uid,
-                biometricEnabled,
-                biometricUpdatedAt: new Date().toISOString()
-            })
-        });
-        return response.json();
+        try {
+            const response = await fetch(`${API_URL}/api/user/biometric`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    uid,
+                    biometricEnabled,
+                    biometricUpdatedAt: new Date().toISOString()
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Update Face ID status failed');
+            }
+            return data;
+        } catch (error) {
+            console.error('Update Face ID status error:', error);
+            throw new Error('Update Face ID status failed');
+        }
     },
 };

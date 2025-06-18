@@ -5,9 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '@env';
 import { RootStackParamList } from '../../types/navigation';
 import { useAuth } from '../context/AuthContext';
-import ReactNativeBiometrics from 'react-native-biometrics';
-
-const rnBiometrics = new ReactNativeBiometrics();
+import * as LocalAuthentication from 'expo-local-authentication';
 
 type LoginScreenNavigationProp = NavigationProp<RootStackParamList, 'Login'>;
 
@@ -19,14 +17,15 @@ const LoginScreen = () => {
   const { signInWithIdToken } = useAuth();
   const API_URL = API_BASE_URL;
 
-  /*  useEffect(() => {
-     checkBiometricSupport();
-   }, []); */
+  useEffect(() => {
+    checkBiometricSupport();
+  }, []);
 
   const checkBiometricSupport = async () => {
     try {
-      const { available } = await rnBiometrics.isSensorAvailable();
-      setBiometricAvailable(available);
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setBiometricAvailable(compatible && enrolled);
     } catch (error) {
       console.error('Biometric check error:', error);
       setBiometricAvailable(false);
@@ -35,36 +34,66 @@ const LoginScreen = () => {
 
   const handleBiometricLogin = async () => {
     try {
-      const { success } = await rnBiometrics.simplePrompt({
-        promptMessage: 'Verify your identity to login',
-        cancelButtonText: 'Cancel'
+      console.log('Start fingerprint verification...');
+
+      // First check if there is any saved login information
+      const savedCredentials = await AsyncStorage.getItem('userCredentials');
+      console.log('Currently saved login information:', savedCredentials);
+
+      if (!savedCredentials) {
+        console.log('No saved login information found, you need to log in with your email and password first');
+        Alert.alert('Prompt', 'Please log in with your email and password first to enable fingerprint login.');
+        return;
+      }
+
+      // Check if fingerprint recognition is available
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!compatible || !enrolled) {
+        console.log('Fingerprint recognition is not available:', { compatible, enrolled });
+        Alert.alert('Prompt', 'Your device does not support fingerprint recognition or has not been set up. ');
+        return;
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Please use fingerprint to verify your identity',
+        fallbackLabel: 'Use password',
+        cancelLabel: 'Cancel',
+        disableDeviceFallback: false,
       });
 
-      if (success) {
-        // Get saved login information from AsyncStorage 
-        const savedCredentials = await AsyncStorage.getItem('userCredentials');
-        if (savedCredentials) {
+      console.log('Fingerprint verification result:', result);
+
+      if (result.success) {
+        console.log('Fingerprint verification is successful, try to get the saved login information...');
+        try {
           const { email, password } = JSON.parse(savedCredentials);
+          console.log('Found the saved login information, try to log in...');
           await handleLogin(email, password);
-        } else {
-          Alert.alert('Error', 'No saved credentials found. Please login with email and password first.');
+        } catch (parseError) {
+          console.error('Parsing login information failed:', parseError);
+          Alert.alert('Error', 'Login information is damaged. Please log in again using your email password.');
         }
+      } else {
+        console.log('Fingerprint verification failed');
+        Alert.alert('Prompt', 'Fingerprint verification failed. Please try again or log in with your password.');
       }
     } catch (error) {
-      console.error('Biometric login error:', error);
-      Alert.alert('Error', 'Biometric verification failed');
+      console.error('Fingerprint login error:', error);
+      Alert.alert('Error', 'Fingerprint verification failed. Please try again or log in with your password.');
     }
   };
 
   const handleLogin = async (loginEmail = email, loginPassword = password) => {
     if (!loginEmail || !loginPassword) {
-      showAlert('Validation Error', 'Please enter both email and password.');
+      showAlert('Verification error', 'Please enter your email and password.');
       return;
     }
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
@@ -80,38 +109,62 @@ const LoginScreen = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Network response was not ok');
+        throw new Error(errorData.message || 'Network response error');
       }
 
       const data = await response.json();
+      console.log('Login response data:', data);
 
-      await signInWithIdToken(data.token);
-
-      // Save login information for biometric login
-      await AsyncStorage.setItem('userCredentials', JSON.stringify({
+      // Save login information
+      const credentials = {
         email: loginEmail,
         password: loginPassword
-      }));
+      };
 
-      // Store user ID for data management
+      try {
+        // Save login information
+        await AsyncStorage.setItem('userCredentials', JSON.stringify(credentials));
+        console.log('Login information has been saved to AsyncStorage');
+
+        // Check if Face ID is available
+        const compatible = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+
+        if (compatible && enrolled) {
+          // Enable Face ID if Face ID is available
+          await AsyncStorage.setItem('biometricEnabled', 'true');
+          console.log('Face ID is enabled');
+        }
+
+        // Verify that the save was successful
+        const savedCredentials = await AsyncStorage.getItem('userCredentials');
+        console.log('Verify the saved login information:', savedCredentials);
+      } catch (storageError) {
+        console.error('Failed to save login information:', storageError);
+      }
+
+      // Login
+      await signInWithIdToken(data.token);
+
+      // Store user ID and other data
       if (data.uid) {
         await AsyncStorage.setItem('userId', data.uid);
         await AsyncStorage.setItem('loginResponse', JSON.stringify(data));
       }
 
       if (data.isNewUser) {
-        showAlert('Registration Successful', 'Account created and logged in!');
+        showAlert('Registration successful', 'Account created and logged in!');
       } else {
-        showAlert('Login Successful', `Welcome, ${loginEmail}!`);
+        showAlert('Login successful', `Welcome back, ${loginEmail}!`);
       }
     } catch (error: any) {
-      console.error('Login/Registration Error:', error);
+      console.error('Login/Registration error:', error);
       if (error.name === 'AbortError') {
-        showAlert('Error', 'Request timed out. Please check your internet connection and try again.');
+        showAlert('Error', 'Request timeout. Please check the network connection and try again.');
       } else if (error.message?.includes('Network request failed')) {
-        showAlert('Error', 'Network error. Please check your internet connection and try again.');
+        showAlert('Error', 'Network error. Please check the network connection and try again.');
       } else {
-        showAlert('Error', error.message || 'Something went wrong. Please try again later.');
+        showAlert('Error', error.message || 'An error occurred. Please try again later.');
       }
     }
   };
@@ -132,7 +185,7 @@ const LoginScreen = () => {
         style={styles.backgroundImage}
         blurRadius={2}
       />
-      <KeyboardAvoidingView behavior="padding" style={styles.innerContainer}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.innerContainer}>
         {/* Page illustration */}
         <Image
           source={{ uri: 'https://cdn-icons-png.flaticon.com/512/135/135620.png' }}
@@ -160,14 +213,14 @@ const LoginScreen = () => {
             <Text style={styles.buttonText}>Login / Register</Text>
           </TouchableOpacity>
 
-{/*           {biometricAvailable && (
+          {biometricAvailable && (
             <TouchableOpacity
               style={[styles.button, styles.biometricButton]}
               onPress={handleBiometricLogin}
             >
-              <Text style={styles.buttonText}>Login with Biometrics</Text>
+              <Text style={styles.buttonText}>Login using biometrics</Text>
             </TouchableOpacity>
-          )} */}
+          )}
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -231,7 +284,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 10,
     backgroundColor: '#f1faee',
     fontSize: 16,
     color: '#023047',
@@ -249,6 +302,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  biometricButton: {
+    backgroundColor: '#023047',
+    marginTop: 10,
   },
 });
 
