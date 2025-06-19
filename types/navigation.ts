@@ -8,6 +8,7 @@ export type RootStackParamList = {
   Statistics: undefined;
   NotificationReminder: undefined;
   UserProfile: undefined;
+  RecipeBrowser: undefined;
 };
 
 export type BottomTabParamList = {

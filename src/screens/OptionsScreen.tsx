@@ -38,7 +38,9 @@ const OptionsScreen = () => {
           >
             <Text style={styles.buttonText}>Data Management</Text>
           </TouchableOpacity>
-
+          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('RecipeBrowser')}>
+            <Text style={styles.buttonText}>Recipe Browse</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={handleLogout}>
             <Text style={styles.buttonText}>Logout</Text>
           </TouchableOpacity>

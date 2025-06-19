@@ -17,5 +17,7 @@ export type BottomTabParamList = {
   StatisticsTab: undefined;
   NotificationTab: undefined;
   OptionsTab: undefined;
+  RestaurantsTab: undefined;
+  RecipeBrowserTab: undefined;
   // ProfileTab: undefined;
 }; 

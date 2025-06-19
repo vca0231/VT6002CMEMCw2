@@ -7,6 +7,7 @@ import Comment from './src/screens/Comments';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import UserProfileScreen from './src/screens/UserProfileScreen';
 import DataManagementScreen from './src/screens/DataManagementScreen';
+import RecipeBrowserScreen from './src/screens/RecipeBrowserScreen';
 import { RootStackParamList } from './types/navigation';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 
@@ -48,6 +49,7 @@ function AppContent() {
             presentation: 'modal',
           }}
         />
+        <Stack.Screen name="RecipeBrowser" component={RecipeBrowserScreen} options={{ title: 'Recipe' }} />
       </Stack.Navigator>
     </View>
   );
