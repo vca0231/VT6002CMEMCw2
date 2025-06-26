@@ -120,13 +120,13 @@ const NotificationReminderScreen = () => {
     if (trigger <= now) {
       // Time has passed or is equal to now, send notification immediately
       await Notifications.scheduleNotificationAsync({
-        content: { title: 'Reminder', body: message },
+        content: { title: 'Reminder', body: message, sound: true },
         trigger: null, // immediately
       });
     } else {
       // Time has not yet arrived, schedule normally
       await Notifications.scheduleNotificationAsync({
-        content: { title: 'Reminder', body: message },
+        content: { title: 'Reminder', body: message, sound: true },
         trigger,
         hour,
         minute,

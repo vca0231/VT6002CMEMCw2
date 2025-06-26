@@ -4,7 +4,6 @@ import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from '../../types/navigation';
 
-// We can directly use NavigationProp<RootStackParamList> as the navigation hook type
 
 const OptionsScreen = () => {
   // Use the broader RootStackParamList for navigation
