@@ -10,8 +10,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
     shouldShowBanner: true,
     shouldShowList: true,
   }),
@@ -120,13 +120,13 @@ const NotificationReminderScreen = () => {
     if (trigger <= now) {
       // Time has passed or is equal to now, send notification immediately
       await Notifications.scheduleNotificationAsync({
-        content: { title: 'Reminder', body: message, sound: true },
+        content: { title: 'Reminder', body: message, sound: 'default', },
         trigger: null, // immediately
       });
     } else {
       // Time has not yet arrived, schedule normally
       await Notifications.scheduleNotificationAsync({
-        content: { title: 'Reminder', body: message, sound: true },
+        content: { title: 'Reminder', body: message, sound: 'default', },
         trigger,
         hour,
         minute,
